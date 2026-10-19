@@ -8,9 +8,14 @@ jobs:
             - name: apt assume-yes
               run: cat /etc/apt/apt.conf.d/90assumeyes
             - name: docker compose
-              run: docker compose version
+              run: |
+                  dpkg -l | grep -E 'docker|compose|buildx' || true
+                  ls -la /usr/libexec/docker/cli-plugins /usr/lib/docker/cli-plugins /usr/local/lib/docker/cli-plugins 2>&1 || true
+                  echo DOCKER_CONFIG=$DOCKER_CONFIG; ls -la $DOCKER_CONFIG $DOCKER_CONFIG/cli-plugins 2>&1 || true
+                  docker buildx version || true
+                  docker compose version
             - name: guest facts
               if: always()
               run: |
                   cat /etc/os-release | head -2; docker version --format '{{.Server.Version}}' || true
-                  ls /etc/ravion* /run/ravion 2>/dev/null | head -20 || true
+                  ls -la /etc/ravion/boot 2>&1 | head; cat /etc/ravion/* 2>/dev/null | head -20; uname -a; stat -c '%y %n' /usr/bin/docker /var/lib/dpkg/status
