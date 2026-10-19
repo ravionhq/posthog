@@ -5,6 +5,12 @@ jobs:
     check:
         runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-0
         steps:
+            - name: git lfs
+              run: git lfs version
+            - uses: actions/checkout@v4
+              with:
+                  lfs: true
+                  fetch-depth: 1
             - name: apt assume-yes
               run: cat /etc/apt/apt.conf.d/90assumeyes
             - name: docker compose
