@@ -1091,7 +1091,7 @@ jobs:
                   [ -d "data" ] && docker run --rm -v "$(pwd)/data:/data" alpine sh -c "rm -rf /data/seaweedfs /data/minio" || true
               continue-on-error: true
             - name: Log in to Docker Hub
-              if: ${{ vars.DOCKERHUB_USER != '' && secrets.DOCKERHUB_TOKEN != '' }}
+              if: ${{ vars.DOCKERHUB_USER != '' }}
               continue-on-error: true
               uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
               with:
@@ -1578,42 +1578,41 @@ jobs:
             # conflicts, dead rule globs, coverage (warn-only). No --live, so no
             # secrets — fork PRs get validated too (the --live slug check runs in
             # the fork-gated validate-product-yamls job instead).
-            - parallel:
-                  - name: Lint owners.yaml files
-                    run: ./bin/hogli owners:lint
-                  - name: Check version specifiers
-                    run: python .github/scripts/check-version-specifiers.py
-                  - name: Check IDOR model coverage
-                    run: python .github/scripts/check-idor-model-coverage.py
-                  - name: Check DWH presentation layer stays source-agnostic
-                    run: python .github/scripts/check-dwh-source-agnostic.py
-                  - name: Check operator parity
-                    run: python .github/scripts/check-operator-parity.py
-                  - name: Check module boundaries (tach)
-                    # Two passes: tests are in the interface graph but not the dependency graph.
-                    # A branch that predates the command still excludes tests in tach.toml, so
-                    # the old single pass is the right check there.
-                    run: |
-                        if ./bin/hogli lint:tach --help >/dev/null 2>&1; then
-                            ./bin/hogli lint:tach
-                        else
-                            tach check --dependencies --interfaces
-                        fi
-                  - name: Check product facade enforcement (import-linter)
-                    run: lint-imports
-                  # These guards take the whole repo as input (import graph after
-                  # django.setup(), signal registries, repo-wide AST scans), so diff-based
-                  # test selection can't pick them and the Django matrix skips them on
-                  # products-only diffs and drafts. They need no service containers.
-                  # Branches that predate the directory still carry the guards at their
-                  # old paths, so fall back to those rather than failing on a missing arg.
-                  - name: Run repo invariants (whole-repo pytest guards)
-                    run: |
-                        if [ -d posthog/test/repo_invariants ]; then
-                            pytest -p no:cacheprovider posthog/test/repo_invariants
-                        else
-                            pytest -p no:cacheprovider posthog/test/test_startup_import_budget.py posthog/test/test_dataclass_defaults.py
-                        fi
+            - name: Lint owners.yaml files
+              run: ./bin/hogli owners:lint
+            - name: Check version specifiers
+              run: python .github/scripts/check-version-specifiers.py
+            - name: Check IDOR model coverage
+              run: python .github/scripts/check-idor-model-coverage.py
+            - name: Check DWH presentation layer stays source-agnostic
+              run: python .github/scripts/check-dwh-source-agnostic.py
+            - name: Check operator parity
+              run: python .github/scripts/check-operator-parity.py
+            - name: Check module boundaries (tach)
+              # Two passes: tests are in the interface graph but not the dependency graph.
+              # A branch that predates the command still excludes tests in tach.toml, so
+              # the old single pass is the right check there.
+              run: |
+                  if ./bin/hogli lint:tach --help >/dev/null 2>&1; then
+                      ./bin/hogli lint:tach
+                  else
+                      tach check --dependencies --interfaces
+                  fi
+            - name: Check product facade enforcement (import-linter)
+              run: lint-imports
+            # These guards take the whole repo as input (import graph after
+            # django.setup(), signal registries, repo-wide AST scans), so diff-based
+            # test selection can't pick them and the Django matrix skips them on
+            # products-only diffs and drafts. They need no service containers.
+            # Branches that predate the directory still carry the guards at their
+            # old paths, so fall back to those rather than failing on a missing arg.
+            - name: Run repo invariants (whole-repo pytest guards)
+              run: |
+                  if [ -d posthog/test/repo_invariants ]; then
+                      pytest -p no:cacheprovider posthog/test/repo_invariants
+                  else
+                      pytest -p no:cacheprovider posthog/test/test_startup_import_budget.py posthog/test/test_dataclass_defaults.py
+                  fi
             # Deterministic = a static check above failed after setup completed.
             # A retry can't fix it, so this signals the cancellation gate to stop the run.
             - name: Flag deterministic failure
@@ -1703,7 +1702,7 @@ jobs:
                   [ -d "data" ] && docker run --rm -v "$(pwd)/data:/data" alpine sh -c "rm -rf /data/seaweedfs /data/minio" || true
               continue-on-error: true
             - name: Log in to Docker Hub
-              if: ${{ vars.DOCKERHUB_USER != '' && secrets.DOCKERHUB_TOKEN != '' }}
+              if: ${{ vars.DOCKERHUB_USER != '' }}
               continue-on-error: true
               uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
               with:
@@ -2416,7 +2415,7 @@ jobs:
                   [ -d "data" ] && docker run --rm -v "$(pwd)/data:/data" alpine sh -c "rm -rf /data/seaweedfs /data/minio" || true
               continue-on-error: true
             - name: Log in to Docker Hub
-              if: ${{ vars.DOCKERHUB_USER != '' && secrets.DOCKERHUB_TOKEN != '' }}
+              if: ${{ vars.DOCKERHUB_USER != '' }}
               continue-on-error: true
               uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
               with:
@@ -3049,7 +3048,7 @@ jobs:
             # Pre-tests
             # Copies the fully versioned UDF xml file for use in CI testing
             - name: Log in to Docker Hub
-              if: ${{ vars.DOCKERHUB_USER != '' && secrets.DOCKERHUB_TOKEN != '' }}
+              if: ${{ vars.DOCKERHUB_USER != '' }}
               continue-on-error: true
               uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
               with:
