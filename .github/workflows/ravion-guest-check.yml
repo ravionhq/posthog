@@ -5,6 +5,11 @@ jobs:
     check:
         runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-0
         steps:
+            - name: GitHub runner-images apt parity
+              if: always()
+              run: |
+                  for p in bzip2 curl g++ gcc make jq tar unzip wget autoconf automake dbus dnsutils dpkg dpkg-dev fakeroot fonts-noto-color-emoji gnupg2 iproute2 iputils-ping libyaml-dev libtool libssl-dev libicu-dev libsqlite3-dev locales mercurial openssh-client p7zip-rar pkg-config python-is-python3 rpm texinfo tk tree tzdata upx xvfb xz-utils zsync acl aria2 binutils bison brotli libnss3-tools coreutils file findutils flex ftp haveged lz4 m4 mediainfo netcat net-tools p7zip-full parallel patchelf pigz pollinate rsync shellcheck sphinxsearch sqlite3 ssh sshpass sudo systemd-coredump swig telnet time zip; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q 'install ok installed' || echo "MISSING_PKG $p"; done
+                  for c in brotli lz4 pigz zip rsync parallel sqlite3 shellcheck file tree time wget psql; do command -v $c >/dev/null || echo "MISSING_CMD $c"; done
             - name: git lfs
               run: git lfs version
             - uses: actions/checkout@v4
