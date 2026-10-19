@@ -1,0 +1,25 @@
+name: Ravion docker startup diag
+on:
+    pull_request:
+jobs:
+    diag:
+        name: diag ${{ matrix.disk }} ${{ matrix.i }}
+        strategy:
+            fail-fast: false
+            matrix:
+                disk: ['default', 'disk32']
+                i: [1, 2, 3, 4]
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8${{ matrix.disk == 'disk32' && '/disk=32' || '' }}/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-diag-${{ strategy.job-index }}
+        steps:
+            - name: Guest facts
+              run: |
+                  uptime; nproc; free -m; df -h / /var/lib/docker 2>/dev/null || df -h /
+                  ps -eo pid,etimes,stat,cmd | grep -E 'dockerd|containerd' | grep -v grep || true
+            - name: dockerd log
+              run: cat /var/log/dockerd.log | head -80 || true
+            - name: Time docker info
+              run: |
+                  s=$(date +%s.%N); docker info >/dev/null; e=$(date +%s.%N); echo "docker info ready after $(echo "$e - $s" | bc) s"
+            - name: dockerd log after
+              if: always()
+              run: tail -40 /var/log/dockerd.log || true
