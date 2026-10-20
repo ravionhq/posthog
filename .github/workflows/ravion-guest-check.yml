@@ -21,4 +21,4 @@ jobs:
                   timeout 10 bash -c 'until (exec 3<>/dev/tcp/127.0.0.1/6399); do sleep 1; done' && echo PORT_OK
             - name: earlier parity still present
               if: always()
-              run: git lfs version && docker compose version && cat /etc/apt/apt.conf.d/90assumeyes && command -v brotli psql
+              run: git lfs version && docker compose version && cat /etc/apt/apt.conf.d/90assumeyes && command -v brotli && command -v psql
