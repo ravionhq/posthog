@@ -1,0 +1,37 @@
+name: Ravion compose diag
+on: pull_request
+jobs:
+  diag:
+    runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/disk=32/id=${{ github.run_id }}-${{ github.run_attempt }}-diag-${{ matrix.n }}
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2]
+    env:
+      COMPOSE_PROJECT_NAME: posthog
+      WAIT_FOR_DOCKER_REGISTRY_MIRROR: mirror.gcr.io
+      COMPOSE_FILE: docker-compose.dev.yml:docker-compose.profiles.yml
+      COMPOSE_PROFILES: temporal,azure
+      CLICKHOUSE_SERVER_IMAGE: clickhouse/clickhouse-server:26.6.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Facts
+        run: |
+          nproc; free -m; df -h / | tail -1; command -v go || echo NO_GO; ls /opt/hostedtoolcache 2>/dev/null || echo NO_TOOLCACHE
+          docker version --format '{{.Server.Version}}'; docker compose version
+      - name: Start services
+        run: |
+          cp posthog/user_scripts/latest_user_defined_function.xml docker/clickhouse/user_defined_function.xml
+          nohup bin/ci-wait-for-docker launch --background --down \
+            db redis7 clickhouse zookeeper kafka objectstorage \
+            temporal elasticsearch objectstorage-azure </dev/null >"${RUNNER_TEMP:-/tmp}/compose-launch.log" 2>&1
+      - name: Wait for launch, dump state
+        if: always()
+        run: |
+          for i in $(seq 1 300); do pgrep -f "ci-wait-for-docker launch" >/dev/null || break; sleep 1; done
+          echo "launch done after ${i}s"
+          echo "::group::compose launch log"; cat "${RUNNER_TEMP:-/tmp}/compose-launch.log"; echo "::endgroup::"
+          docker compose ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+          for s in $(docker compose ps -a --format '{{.Name}}'); do st=$(docker inspect -f '{{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}}' $s); echo "$s $st"; done
+          sleep 20; docker compose ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+          docker compose logs --tail 15 temporal objectstorage kafka clickhouse 2>&1 | tail -80
