@@ -1,0 +1,24 @@
+name: Ravion guest image check
+on:
+    pull_request:
+jobs:
+    check:
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-0
+        timeout-minutes: 15
+        steps:
+            - name: go on PATH
+              run: which go && go version
+            - name: dockerd skips iptables raw
+              if: always()
+              run: tr '\0' '\n' < /proc/$(pgrep -xo dockerd)/environ | grep DOCKER_INSECURE_NO_IPTABLES_RAW
+            - name: compose with a 127.0.0.1 port
+              if: always()
+              run: |
+                  mkdir -p /tmp/c && cd /tmp/c
+                  printf 'services:\n  r:\n    image: redis:7\n    ports: ["127.0.0.1:6399:6379"]\n' > compose.yml
+                  docker compose up -d --wait
+                  docker compose ps
+                  timeout 10 bash -c 'until (exec 3<>/dev/tcp/127.0.0.1/6399); do sleep 1; done' && echo PORT_OK
+            - name: earlier parity still present
+              if: always()
+              run: git lfs version && docker compose version && cat /etc/apt/apt.conf.d/90assumeyes && command -v brotli psql
