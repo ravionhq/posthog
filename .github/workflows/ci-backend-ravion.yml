@@ -231,7 +231,7 @@ jobs:
             && (github.event.pull_request.draft != true
             || startsWith(github.head_ref, 'trunk-merge/')
             || !contains(github.event.pull_request.labels.*.name, 'no-ci')))
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-changes-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-changes-${{ 0 }}
         timeout-minutes: 5
         name: Determine need to run backend and migration checks
         # Set job outputs to values from filter step
@@ -600,7 +600,7 @@ jobs:
 
     detect-snapshot-mode:
         name: Detect snapshot mode
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-detect-snapshot-mode-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-detect-snapshot-mode-${{ 0 }}
         timeout-minutes: 5
         needs: [changes]
         # Not on master push: only feeds the matrices, which master pushes skip.
@@ -643,7 +643,7 @@ jobs:
         needs: [changes]
         # Not on master push: master only primes the schema cache; this cascades the matrices off.
         if: needs.changes.outputs.backend == 'true' && github.event_name != 'push'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-turbo-discover-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-turbo-discover-${{ 0 }}
         timeout-minutes: 20
         name: Discover product tests
         env:
@@ -950,7 +950,7 @@ jobs:
             needs.changes.outputs.backend == 'true' &&
             needs.turbo-discover.result == 'success'
         name: Prime schema cache
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-prime-schema-cache-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-prime-schema-cache-${{ 0 }}
         timeout-minutes: 25
         continue-on-error: true
         steps:
@@ -1031,7 +1031,7 @@ jobs:
         needs: [turbo-discover]
         if: >-
             !cancelled() && needs.turbo-discover.result == 'success' && needs.turbo-discover.outputs.matrix != '[]' && needs.turbo-discover.outputs.matrix != ''
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-build-product-test-matrix-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-build-product-test-matrix-${{ 0 }}
         timeout-minutes: 5
         outputs:
             include: ${{ steps.build.outputs.include }}
@@ -1057,7 +1057,7 @@ jobs:
                       $matrix[] as $entry
                       | $schema_modes[] as $new_events_schema
                       | $entry + {"new-events-schema": $new_events_schema}
-                    ]
+                    ] | map(select(.group == "warehouse-sources (3/4)"))
                   ')
                   echo "include=$include" >> "$GITHUB_OUTPUT"
                   echo "Product test matrix size: $(jq -r 'length' <<< "$include")"
@@ -1079,7 +1079,7 @@ jobs:
             ]
         if: >-
             !cancelled() && (github.event.pull_request.draft != true || startsWith(github.head_ref, 'trunk-merge/') || true) && needs.turbo-discover.result == 'success' && needs.build-product-test-matrix.result == 'success' && needs.build-product-test-matrix.outputs.include != '[]' && needs.build-product-test-matrix.outputs.include != ''
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-turbo-tests-${{ strategy.job-index }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-turbo-tests-${{ strategy.job-index }}
         timeout-minutes: 40
         name: Product tests (${{ matrix.group }}, events schema ${{ matrix.new-events-schema && 'json' || 'legacy' }})
         strategy:
@@ -1088,6 +1088,10 @@ jobs:
                 include: ${{ fromJson(needs.build-product-test-matrix.outputs.include) }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+            - name: Ravion memory monitor
+              run: |
+                  swapon --show; free -m; df -h /tmp /dev/shm /; mount | grep -E ' /tmp | /dev/shm '
+                  nohup bash -c 'while true; do { echo "== $(date -u +%T)"; free -m | sed -n 2,3p; df -m /tmp /dev/shm / | tail -n +2; du -sm /tmp 2>/dev/null; ps -eo rss,comm --sort=-rss | head -8; docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" 2>/dev/null; } >> /var/tmp/memmon.log 2>&1; sleep 10; done' >/dev/null 2>&1 &
             # Start Docker early (before dependency installs) so containers can pull
             # images and initialize while we install deps. This matches the pattern
             # used by core-tests/django and makes the later wait step negligible.
@@ -1494,17 +1498,24 @@ jobs:
                   if-no-files-found: ignore
                   retention-days: 1
 
+            - name: Ravion memory dump
+              if: always()
+              run: |
+                  tail -n 2000 /var/tmp/memmon.log || true
+                  sudo dmesg | grep -i -E "oom|killed process|out of memory" | tail -n 40 || true
+
     # Lightweight repo-wide checks that only need Python + uv (no Docker/DB).
     # Consolidates checks that previously each spun up their own runner.
     # Every PostHog SDK this repo installs must stay on its pinned major; the release
     # bots rewrite manifests across majors, so this is the block. Stdlib only, no venv.
+
     sdk-major-guard:
         needs: [changes]
-        if: needs.changes.outputs.sdk_manifests == 'true' && github.event_name != 'schedule'
+        if: false
         timeout-minutes: 5
         permissions: {}
         name: SDK major-version guard (depot-ubuntu-24.04)
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-sdk-major-guard-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-sdk-major-guard-${{ 0 }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
             - name: Check every SDK stays on its pinned major
@@ -1513,7 +1524,7 @@ jobs:
     repo-checks:
         needs: [changes]
         # product_yamls: ownership-only PRs still need the owners.yaml lint below.
-        if: (needs.changes.outputs.backend == 'true' || needs.changes.outputs.product_yamls == 'true' || needs.changes.outputs.repo_invariants == 'true') && github.event_name != 'schedule'
+        if: false
         timeout-minutes: 10
         outputs:
             deterministic_failure: ${{ steps.deterministic-failure.outputs.deterministic_failure || 'false' }}
@@ -1521,7 +1532,7 @@ jobs:
             contents: read
             pull-requests: read # list PR files for the deleted-migration check
         name: Repo checks (depot-ubuntu-24.04)
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-repo-checks-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-repo-checks-${{ 0 }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
             - name: Mint setup-action GitHub token
@@ -1627,13 +1638,10 @@ jobs:
 
     validate-product-yamls:
         needs: [changes]
-        if: >
-            needs.changes.outputs.product_yamls == 'true' &&
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository
+        if: false
         timeout-minutes: 5
         name: Validate product.yaml owners (depot-ubuntu-24.04)
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-validate-product-yamls-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-validate-product-yamls-${{ 0 }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
             - name: Get app token
@@ -1687,7 +1695,7 @@ jobs:
         # products/db_routing.yaml is neither Python nor under a backend/ directory, and
         # a migration in a future top-level app matches none of them. Without it the
         # replay gate could be on while the job that runs it never starts.
-        if: (needs.changes.outputs.backend == 'true' || needs.changes.outputs.migrations == 'true' || needs.changes.outputs.migration_replay == 'true') && github.event_name != 'schedule'
+        if: false
         # On master this job replays the full migration history from scratch to
         # produce the schema dump every PR job restores, and a merge queue batch that
         # changes a Django migration replays it a second time onto an empty database.
@@ -1696,7 +1704,7 @@ jobs:
         # history takes.
         timeout-minutes: 60
         name: Validate migrations
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-migrations-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-migrations-${{ 0 }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
@@ -2404,12 +2412,12 @@ jobs:
 
     check-openapi-types:
         needs: [changes]
-        if: (needs.changes.outputs.backend == 'true' || needs.changes.outputs.openapi_types == 'true') && github.event_name != 'schedule'
+        if: false
         timeout-minutes: 20
         outputs:
             deterministic_failure: ${{ steps.deterministic-failure.outputs.deterministic_failure || 'false' }}
         name: Validate OpenAPI types
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-openapi-types-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-openapi-types-${{ 0 }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
@@ -2605,11 +2613,8 @@ jobs:
     build_django_matrix:
         name: Build Django matrix
         needs: [changes, get_clickhouse_versions, turbo-discover, prime-schema-cache]
-        if: |
-            !cancelled() &&
-            needs.changes.outputs.backend == 'true' &&
-            needs.get_clickhouse_versions.result == 'success'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-build_django_matrix-${{ 0 }}
+        if: false
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-build_django_matrix-${{ 0 }}
         timeout-minutes: 5
         outputs:
             include: ${{ steps.build.outputs.include }}
@@ -3002,15 +3007,7 @@ jobs:
         # that chose zero files — an empty matrix would otherwise fail the job.
         # A status function is required to inspect dependency results after failures.
         # Use !cancelled(), not always(), so superseded matrix jobs still receive cancellation.
-        if: |
-            !cancelled() &&
-            needs.changes.outputs.backend == 'true' &&
-            needs.build_django_matrix.result == 'success' &&
-            needs.build_django_matrix.outputs.include != '[]' &&
-            (needs.changes.outputs.legacy == 'true' ||
-             needs.turbo-discover.outputs.run_legacy == 'true' ||
-             (needs.turbo-discover.result != 'success' && needs.turbo-discover.result != 'skipped') ||
-             fromJSON(needs.turbo-discover.outputs.selection || '{}').json_targets_files != '')
+        if: false
         # increase for tmate testing
         # 45 to match canonical.
         timeout-minutes: 45
@@ -3018,7 +3015,7 @@ jobs:
         # Match canonical's runner size. The shadow restores the same master-primed
         # schema cache (turbo-discover key + check-migrations save), so shards skip
         # migrations exactly like canonical once Depot's cache is warmed by a master run.
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-django-${{ strategy.job-index }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/disk=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-django-${{ strategy.job-index }}
         strategy:
             fail-fast: false
             matrix:
@@ -3871,7 +3868,7 @@ jobs:
         name: Get ClickHouse versions
         needs: [changes]
         if: needs.changes.outputs.backend == 'true' && github.event_name != 'push'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-get_clickhouse_versions-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-get_clickhouse_versions-${{ 0 }}
         timeout-minutes: 5
         outputs:
             # Oldest supported version as plain string (for comparisons)
@@ -3950,8 +3947,8 @@ jobs:
         needs: [changes, detect-snapshot-mode, django, turbo-tests]
         # Only in UPDATE mode - CHECK mode verifies snapshots match exactly
         # Run even if some matrix jobs failed (to commit snapshots from passing jobs)
-        if: ${{ !cancelled() && needs.detect-snapshot-mode.outputs.mode == 'update' && needs.changes.outputs.backend == 'true' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog' }}
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-handle-snapshots-${{ 0 }}
+        if: false
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-handle-snapshots-${{ 0 }}
         timeout-minutes: 5
         steps:
             # Look for patches before the checkout. Most runs have none, and the required
@@ -4062,14 +4059,11 @@ jobs:
                 sdk-major-guard,
             ]
         name: Django Tests Pass on Depot
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-django_tests-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-django_tests-${{ 0 }}
         timeout-minutes: 8
         # !cancelled() collates skipped/failed matrix jobs without reporting failure on a
         # superseded run (mirrors canonical).
-        if: >
-            !cancelled()
-            || needs.repo-checks.outputs.deterministic_failure == 'true'
-            || needs.check-openapi-types.outputs.deterministic_failure == 'true'
+        if: false
         env:
             # The gate check posts the summary as its output, titled by the first line of the title file.
             GATE_SUMMARY: /tmp/gate-check-summary.md
@@ -4287,11 +4281,8 @@ jobs:
         # skipped on a draft whose selection was untrusted, which defers to the ready run
         # — there is no selection to score and no JUnit to score it against. The decision
         # itself is still recorded, by capture-test-selection.
-        if: >-
-            !cancelled() && github.event_name == 'pull_request' &&
-            needs.changes.result != 'skipped' &&
-            (needs.django.result != 'skipped' || needs.turbo-tests.result != 'skipped')
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-test-selection-verdict-${{ 0 }}
+        if: false
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-test-selection-verdict-${{ 0 }}
         timeout-minutes: 10
         permissions:
             contents: read
@@ -4387,18 +4378,12 @@ jobs:
     backend-coverage-report:
         name: Backend coverage report
         needs: [changes, turbo-tests, django_tests, turbo-discover]
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-backend-coverage-report-${{ 0 }}
+        runs-on: ravion/ee=openclaw-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-backend-coverage-report-${{ 0 }}
         continue-on-error: true
         timeout-minutes: 10
         permissions:
             contents: read
-        if: >-
-            !cancelled() &&
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.draft == false &&
-            needs.turbo-discover.outputs.mode != 'selected' &&
-            github.event.pull_request.head.repo.full_name == 'PostHog/posthog' &&
-            (needs.turbo-tests.result != 'skipped' || needs.django_tests.result != 'skipped')
+        if: false
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
