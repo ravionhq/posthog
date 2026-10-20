@@ -3,27 +3,12 @@ on:
     pull_request:
 jobs:
     check:
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-shm-0
-        timeout-minutes: 15
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
         steps:
-            - name: /dev/shm tmpfs and multiprocessing lock
+            - name: GitHub-hosted memory, swap and tmp baseline
               run: |
-                  mountpoint /dev/shm && stat -f -c %T /dev/shm && test -w /dev/shm && echo SHM_OK
-                  python3 -c "import multiprocessing; multiprocessing.Lock(); print('LOCK_OK')"
-            - name: go on PATH
-              if: always()
-              run: which go && go version
-            - name: dockerd skips iptables raw
-              if: always()
-              run: tr '\0' '\n' < /proc/$(pgrep -xo dockerd)/environ | grep DOCKER_INSECURE_NO_IPTABLES_RAW
-            - name: compose with a 127.0.0.1 port
-              if: always()
-              run: |
-                  mkdir -p /tmp/c && cd /tmp/c
-                  printf 'services:\n  r:\n    image: redis:7\n    ports: ["127.0.0.1:6399:6379"]\n' > compose.yml
-                  docker compose up -d --wait
-                  docker compose ps
-                  timeout 10 bash -c 'until (exec 3<>/dev/tcp/127.0.0.1/6399); do sleep 1; done' && echo PORT_OK
-            - name: earlier parity still present
-              if: always()
-              run: git lfs version && docker compose version && cat /etc/apt/apt.conf.d/90assumeyes && command -v brotli && command -v psql
+                  nproc; free -m; swapon --show
+                  df -h /tmp /dev/shm /
+                  mount | grep -E ' /tmp | /dev/shm | / ' || true
+                  cat /proc/sys/vm/overcommit_memory /proc/sys/vm/swappiness
