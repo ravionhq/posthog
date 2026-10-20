@@ -13,6 +13,7 @@ jobs:
       COMPOSE_FILE: docker-compose.dev.yml:docker-compose.profiles.yml
       COMPOSE_PROFILES: temporal,azure
       CLICKHOUSE_SERVER_IMAGE: clickhouse/clickhouse-server:26.6.2
+      WAIT_FOR_DOCKER_LAUNCH_RETRY_DELAY: 5
     steps:
       - uses: actions/checkout@v4
       - name: Facts
@@ -22,9 +23,7 @@ jobs:
       - name: Start services
         run: |
           cp posthog/user_scripts/latest_user_defined_function.xml docker/clickhouse/user_defined_function.xml
-          nohup bin/ci-wait-for-docker launch --background --down \
-            db redis7 clickhouse zookeeper kafka objectstorage \
-            temporal elasticsearch objectstorage-azure </dev/null >"${RUNNER_TEMP:-/tmp}/compose-launch.log" 2>&1
+          nohup bin/ci-wait-for-docker launch --background --down-all-profiles </dev/null >"${RUNNER_TEMP:-/tmp}/compose-launch.log" 2>&1
       - name: Wait for launch, dump state
         if: always()
         run: |
