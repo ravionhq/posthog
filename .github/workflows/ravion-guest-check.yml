@@ -3,10 +3,15 @@ on:
     pull_request:
 jobs:
     check:
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-0
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-check-shm-0
         timeout-minutes: 15
         steps:
+            - name: /dev/shm tmpfs and multiprocessing lock
+              run: |
+                  mountpoint /dev/shm && stat -f -c %T /dev/shm && test -w /dev/shm && echo SHM_OK
+                  python3 -c "import multiprocessing; multiprocessing.Lock(); print('LOCK_OK')"
             - name: go on PATH
+              if: always()
               run: which go && go version
             - name: dockerd skips iptables raw
               if: always()
