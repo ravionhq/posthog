@@ -1,3 +1,4 @@
+# Ravion benchmark replay (ravionhq/posthog fork): PostHog's ci-e2e-playwright.yml at f8ac31ba8394 with Depot runs-on rewritten to Ravion posthog-bench labels.
 #
 # This workflow runs CI E2E tests with Playwright.
 #
@@ -146,6 +147,7 @@ jobs:
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
               if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              continue-on-error: true
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -295,7 +297,7 @@ jobs:
               # Scoped, blob-less, no-tags — matches ci-backend / ci-dagster.
               # Without an explicit refspec, `git fetch --deepen` would fall back to
               # remote.origin.fetch and pull every branch.
-              run: git fetch --no-tags --depth=1000 --filter=blob:none origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+              run: git fetch --no-tags --depth=1000 --filter=blob:none origin "+$BASE_REF:refs/remotes/origin/$BASE_REF"
 
             - name: Compute schema cache keys
               id: schema-key
@@ -431,7 +433,7 @@ jobs:
                   # commits merged into the branch aren't counted as changes.
                   # This runs before Python, so tag a fetch failure with its own detail —
                   # otherwise classify sees only a failed step and reports an empty detail.
-                  if ! git fetch --no-tags --depth=1000 --filter=blob:none origin "$BASE_REF:refs/remotes/origin/$BASE_REF"; then
+                  if ! git fetch --no-tags --depth=1000 --filter=blob:none origin "+$BASE_REF:refs/remotes/origin/$BASE_REF"; then
                       echo "::warning::git fetch of base ref failed — full run"
                       echo "reason_detail=git_fetch_failed" >> "$GITHUB_OUTPUT"
                       exit 1
@@ -535,7 +537,7 @@ jobs:
         # 8-core depot: 18% avg / 30% peak memory observed on 16-core runs (#46853 noted
         # the workload "is not resource constrained" even after sharding was removed).
         # Talk to #team-devex before changing.
-        runs-on: depot-ubuntu-24.04-8
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-playwright-${{ 0 }}
         timeout-minutes: 45
         permissions:
             contents: read
@@ -757,7 +759,7 @@ jobs:
               env:
                   COMPOSE_FILE: docker-compose.dev.yml:docker-compose.profiles.yml
                   COMPOSE_PROFILES: capture,temporal
-              run: bin/ci-wait-for-docker launch --down
+              run: docker ps -aq | xargs -r docker rm -f >/dev/null; docker volume prune -af >/dev/null; bin/ci-wait-for-docker launch --down
 
             - name: Wait for Docker services
               env:
@@ -1299,7 +1301,7 @@ jobs:
         name: Complete Visual Review run
         # Same runner provider as the playwright job, whose VR CLI cache entry this job
         # reads: GitHub-hosted and Depot runners keep separate cache stores.
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-vr-complete-${{ 0 }}
         timeout-minutes: 15
         needs: [playwright]
         # !cancelled() is load-bearing. select-specs is skipped on every full-run event (push to
