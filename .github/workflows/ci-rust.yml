@@ -1,8 +1,9 @@
+# Ravion benchmark replay (ravionhq/posthog fork): PostHog's ci-rust.yml at f36a94f72174 with Depot runs-on rewritten to Ravion posthog-bench labels.
 name: Rust CI
 on:
     workflow_dispatch:
     push:
-        branches: [master, main]
+        branches: [master, main, 'bench/**']
     pull_request:
 
 concurrency:
@@ -41,7 +42,7 @@ jobs:
     changes:
         runs-on: ubuntu-24.04
         timeout-minutes: 5
-        if: github.repository == 'PostHog/posthog'
+        if: true
         name: Determine need to run Rust checks
         permissions:
             contents: read
@@ -61,6 +62,7 @@ jobs:
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
               if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              continue-on-error: true
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -132,7 +134,7 @@ jobs:
               with:
                   event-name: ${{ github.event_name }}
                   pr-base-sha: ${{ github.event.pull_request.base.sha }}
-                  push-before-sha: ${{ github.event.before }}
+                  push-before-sha: e41222dc9c955d99a54ab0d974b51eee6d4baa3e
                   rebuild-all: ${{ (github.event_name == 'workflow_dispatch' || needs.changes.outputs.all_crates == 'true') && 'true' || 'false' }}
 
             # Bin-pack affected packages into balanced test shards.
@@ -279,9 +281,10 @@ jobs:
         name: Build Rust (${{ matrix.packages }})
         strategy:
             matrix: ${{ fromJSON(needs.affected.outputs.matrix) }}
+            fail-fast: false
         needs: [changes, affected]
         if: needs.changes.outputs.rust == 'true'
-        runs-on: depot-ubuntu-22.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-build-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -360,9 +363,10 @@ jobs:
         name: Test Rust (${{ matrix.packages }})
         strategy:
             matrix: ${{ fromJSON(needs.affected.outputs.matrix) }}
+            fail-fast: false
         needs: [changes, affected]
         if: needs.changes.outputs.rust == 'true'
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-test-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -402,7 +406,7 @@ jobs:
                   COMPOSE_PROFILES: etcd,replay
                   WAIT_FOR_DOCKER_LAUNCH_RETRY_DELAY: 10
               run: |
-                  ../bin/ci-wait-for-docker launch --down
+                  docker ps -aq | xargs -r docker rm -f >/dev/null; docker volume prune -af >/dev/null; ../bin/ci-wait-for-docker launch --down
                   # objectstorage reports healthy only once its `posthog` bucket and
                   # `object_storage_root_user` identity exist; the cohort processor's S3 tests use both.
                   ../bin/ci-wait-for-docker wait seaweedfs objectstorage
@@ -588,6 +592,7 @@ jobs:
                   PERSONS_READ_DATABASE_URL: ${{ contains(format(' {0} ', matrix.packages), ' feature-flags ') && 'postgres://posthog:posthog@localhost:5432/posthog_persons' || '' }}
                   PERSONS_WRITE_DATABASE_URL: ${{ contains(format(' {0} ', matrix.packages), ' feature-flags ') && 'postgres://posthog:posthog@localhost:5432/posthog_persons' || '' }}
               run: |
+                  for p in $(pgrep -x sccache); do i=$(readlink /proc/$p/fd/0); echo "bench-diag sccache pid=$p ppid=$(ps -o ppid= -p $p) fd0=$i"; case "$i" in pipe:*|socket:*) for f in /proc/[0-9]*/fd/*; do if [ "$(readlink $f 2>/dev/null)" = "$i" ]; then q=$(echo $f | cut -d/ -f3); echo "  holder $f $(tr '\\0' ' ' </proc/$q/cmdline 2>/dev/null | cut -c1-160)"; fi; done;; esac; done; ls -l /proc/self/fd/0 || true
                   for pkg in ${{ matrix.packages }}; do
                       # nextest skips doctests; run them only for packages with a lib target
                       # (`cargo test --doc` errors on bin-only packages).
@@ -645,7 +650,7 @@ jobs:
         # marks the harness affected whenever a personhog service it spawns
         # changes, so unrelated rust PRs skip the job entirely.
         if: needs.changes.outputs.rust == 'true' && contains(needs.affected.outputs.affected_crates, 'personhog-test-harness')
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-personhog-gate-${{ 0 }}
         timeout-minutes: 25
         permissions:
             contents: read
@@ -676,7 +681,7 @@ jobs:
                   COMPOSE_PROFILES: etcd
                   WAIT_FOR_DOCKER_LAUNCH_RETRY_DELAY: 10
               run: |
-                  ../bin/ci-wait-for-docker launch --down db kafka etcd
+                  docker ps -aq | xargs -r docker rm -f >/dev/null; docker volume prune -af >/dev/null; ../bin/ci-wait-for-docker launch --down db kafka etcd
                   ../bin/ci-wait-for-docker wait --only db kafka etcd
 
                   echo "127.0.0.1 db kafka" | sudo tee -a /etc/hosts
@@ -896,7 +901,7 @@ jobs:
         name: Lint Rust services (depot-ubuntu-22.04-4)
         needs: changes
         if: needs.changes.outputs.rust == 'true'
-        runs-on: depot-ubuntu-22.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-linting-${{ 0 }}
         timeout-minutes: 15
         permissions:
             contents: read
