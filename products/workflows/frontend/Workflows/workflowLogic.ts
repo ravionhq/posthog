@@ -143,6 +143,24 @@ export const NEW_WORKFLOW: HogFlow = {
 // Step types that depend on person data and so cannot run for person-less (row-scoped)
 // data-warehouse-table triggers. Module-scoped to avoid reallocating on every selector recompute.
 export const PERSON_DEPENDENT_ACTION_TYPES = new Set(['wait_until_condition', 'random_cohort_branch'])
+export const PERSON_DEPENDENT_TEMPLATE_IDS = new Set(['template-posthog-add-person-to-static-cohort'])
+
+export function isPersonDependentAction(action: Pick<HogFlowAction, 'type' | 'config'>): boolean {
+    return (
+        PERSON_DEPENDENT_ACTION_TYPES.has(action.type) ||
+        (action.type === 'function' &&
+            'template_id' in action.config &&
+            PERSON_DEPENDENT_TEMPLATE_IDS.has(action.config.template_id))
+    )
+}
+
+export function isPersonlessTrigger(trigger: TriggerAction['config'] | undefined): boolean {
+    return (
+        ROW_SCOPED_TRIGGER_TYPES.has(trigger?.type ?? '') ||
+        trigger?.type === 'schedule' ||
+        (trigger?.type === 'batch' && (trigger.filters.audience_type ?? 'persons') === 'accounts')
+    )
+}
 
 // Trigger types whose runs have no person attached: a synced warehouse row, a materialized view
 // row, and an internal event are all things no PostHog person is attached to. Keep in sync with
@@ -287,6 +305,7 @@ export interface workflowLogicValues {
     hogFunctionTemplatesByIdLoading: boolean
     isAutoSave: boolean
     isAutoSavePending: boolean
+    isPersonlessTrigger: boolean
     isRowScopedTrigger: boolean
     isScheduleRepeating: boolean
     isSyncingExternalEdit: boolean
@@ -3163,6 +3182,143 @@ export interface workflowLogicMeta {
                   } & Record<string, unknown>)
                 | null
         ) => boolean
+        isPersonlessTrigger: (
+            triggerAction:
+                | ({
+                      config:
+                          | {
+                                type: 'api'
+                            }
+                          | {
+                                type: 'schedule'
+                            }
+                          | {
+                                filters: {
+                                    all_roles_unassigned?: boolean | undefined
+                                    assigned_to_user_ids?: number[] | undefined
+                                    assignment_status?: 'all' | 'assigned' | 'unassigned' | undefined
+                                    audience_type?: 'accounts' | 'persons' | undefined
+                                    properties: any[]
+                                    tag_names?: string[] | undefined
+                                }
+                                type: 'batch'
+                            }
+                          | {
+                                filters: {
+                                    actions?: any[] | undefined
+                                    events?: any[] | undefined
+                                    filter_test_accounts?: boolean | undefined
+                                    properties?: any[] | undefined
+                                }
+                                type: 'event'
+                            }
+                          | {
+                                filters: {
+                                    events: any[]
+                                    properties?: any[] | undefined
+                                    source: 'internal-events'
+                                }
+                                type: 'internal-event'
+                            }
+                          | {
+                                cohort_id: number | null
+                                transition: 'entered' | 'left'
+                                type: 'cohort'
+                            }
+                          | {
+                                filters: {
+                                    properties?: any[] | undefined
+                                }
+                                key_property?: string | undefined
+                                table_name: string
+                                type: 'data-warehouse-table'
+                            }
+                          | {
+                                filters: {
+                                    properties?: any[] | undefined
+                                }
+                                key_property?: string | undefined
+                                table_name: string
+                                type: 'data-warehouse-view'
+                            }
+                          | {
+                                inputs: Record<
+                                    string,
+                                    {
+                                        bytecode?: any
+                                        order?: number | undefined
+                                        secret?: boolean | undefined
+                                        templating?: 'hog' | 'liquid' | undefined
+                                        value: any
+                                    }
+                                >
+                                template_id: string
+                                template_uuid?: string | undefined
+                                type: 'manual'
+                            }
+                          | {
+                                inputs: Record<
+                                    string,
+                                    {
+                                        bytecode?: any
+                                        order?: number | undefined
+                                        secret?: boolean | undefined
+                                        templating?: 'hog' | 'liquid' | undefined
+                                        value: any
+                                    }
+                                >
+                                template_id: string
+                                template_uuid?: string | undefined
+                                type: 'tracking_pixel'
+                            }
+                          | {
+                                inputs: Record<
+                                    string,
+                                    {
+                                        bytecode?: any
+                                        order?: number | undefined
+                                        secret?: boolean | undefined
+                                        templating?: 'hog' | 'liquid' | undefined
+                                        value: any
+                                    }
+                                >
+                                template_id: string
+                                template_uuid?: string | undefined
+                                type: 'webhook'
+                            }
+                      created_at?: number | undefined
+                      description: string
+                      filters?:
+                          | {
+                                actions?: any[] | undefined
+                                events?: any[] | undefined
+                                properties?: any[] | undefined
+                            }
+                          | null
+                          | undefined
+                      id: string
+                      name: string
+                      on_error?: 'abort' | 'continue' | null | undefined
+                      output_variable?:
+                          | {
+                                key: string
+                                label?: string | null | undefined
+                                result_path?: string | null | undefined
+                                spread?: boolean | null | undefined
+                            }
+                          | {
+                                key: string
+                                label?: string | null | undefined
+                                result_path?: string | null | undefined
+                                spread?: boolean | null | undefined
+                            }[]
+                          | null
+                          | undefined
+                      type: 'trigger'
+                      updated_at?: number | undefined
+                  } & Record<string, unknown>)
+                | null
+        ) => boolean
         workflowSanitized: (
             workflow: HogFlow,
             hogFunctionTemplatesById: Record<string, HogFunctionTemplateType>
@@ -3882,12 +4038,10 @@ export const workflowLogic = kea<workflowLogicType>([
                 saveAttemptedActionIds: string[] | null,
                 integrations: IntegrationType[] | null
             ): Record<string, HogFlowActionValidationResult | null> => {
-                // Warehouse- and Slack-triggered workflows are person-less ("row-scoped").
-                // Person-dependent step types make no sense without a person, so we block them at
-                // save time.
+                // Some triggers do not attach a person to the run, so block person-dependent steps.
                 const triggerAction = workflow.actions.find((a) => a.type === 'trigger')
-                const isRowScopedTrigger =
-                    triggerAction?.type === 'trigger' && ROW_SCOPED_TRIGGER_TYPES.has(triggerAction.config?.type)
+                const triggerIsPersonless =
+                    triggerAction?.type === 'trigger' && isPersonlessTrigger(triggerAction.config)
 
                 return workflow.actions.reduce(
                     (acc, action) => {
@@ -3898,11 +4052,10 @@ export const workflowLogic = kea<workflowLogicType>([
                             warnings: {},
                         }
 
-                        if (isRowScopedTrigger && PERSON_DEPENDENT_ACTION_TYPES.has(action.type)) {
+                        if (triggerIsPersonless && isPersonDependentAction(action)) {
                             result.valid = false
                             result.errors = {
-                                _action:
-                                    'This step relies on person data, which is not available for data warehouse table triggers',
+                                _action: 'This step needs person data, which is not available for this trigger.',
                             }
                             acc[action.id] = result
                             return acc
@@ -4079,6 +4232,11 @@ export const workflowLogic = kea<workflowLogicType>([
             (s) => [s.triggerAction],
             (triggerAction: TriggerAction | null): boolean =>
                 ROW_SCOPED_TRIGGER_TYPES.has(triggerAction?.config?.type ?? ''),
+        ],
+
+        isPersonlessTrigger: [
+            (s) => [s.triggerAction],
+            (triggerAction: TriggerAction | null): boolean => isPersonlessTrigger(triggerAction?.config),
         ],
 
         workflowSanitized: [

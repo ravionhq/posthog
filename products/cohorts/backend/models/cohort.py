@@ -941,6 +941,7 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         *,
         team_id: int,
         raise_on_error: bool = False,
+        save_state: bool = True,
     ) -> int:
         """
         Insert already-resolved (person_id, person_uuid) members into the cohort, for the given team.
@@ -948,7 +949,7 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         Skips the per-batch UUID → person id resolution that ``insert_users_list_by_uuid``
         performs — for callers that resolved the persons themselves (e.g. a validation pass over
         the same set) and must not pay for a second personhog lookup. Semantics otherwise match
-        ``insert_users_list_by_uuid``, including ``raise_on_error``.
+        ``insert_users_list_by_uuid``, including ``raise_on_error`` and ``save_state``.
 
         The ``_skip_validation`` suffix is the tenant-isolation contract: pairs MUST come from a
         team-scoped personhog read for this same ``team_id`` (e.g.
@@ -960,16 +961,24 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         integrity violation.
 
         Returns:
-            The number of batches processed.
+            The number of newly inserted members.
         """
+        inserted_count = 0
+
+        def insert_batch(batch: list[tuple[int, str]]) -> None:
+            nonlocal inserted_count
+            inserted_count += self._insert_resolved_batch(batch, insert_in_clickhouse=True, team_id=team_id)
+
         batch_iterator = ArrayBatchIterator(items, batch_size=DEFAULT_COHORT_INSERT_BATCH_SIZE)
-        return self._insert_users_list_with_batching(
+        self._insert_users_list_with_batching(
             batch_iterator,
             insert_in_clickhouse=True,
             team_id=team_id,
             raise_on_error=raise_on_error,
-            insert_batch=lambda batch: self._insert_resolved_batch(batch, insert_in_clickhouse=True, team_id=team_id),
+            save_state=save_state,
+            insert_batch=insert_batch,
         )
+        return inserted_count
 
     def insert_users_by_email(
         self,
@@ -1150,7 +1159,7 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         *,
         insert_in_clickhouse: bool,
         team_id: int,
-    ) -> None:
+    ) -> int:
         """Write a single batch of already-resolved (person_id, person_uuid) cohort members.
 
         Trusts the pairs — see the tenant-isolation contract on
@@ -1164,7 +1173,7 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         from products.cohorts.backend.models.util import insert_cohort_members, insert_static_cohort
 
         if not id_uuid_pairs:
-            return
+            return 0
 
         seen_uuids: set[str] = set()
         deduped_pairs: list[tuple[int, str]] = []
@@ -1183,7 +1192,7 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
             if new_uuids:
                 insert_static_cohort(new_uuids, self.pk, team_id=team_id)
 
-        insert_cohort_members(team_id, self.pk, person_ids, self.version, _skip_ownership_check=True)
+        return insert_cohort_members(team_id, self.pk, person_ids, self.version, _skip_ownership_check=True)
 
     def _get_existing_ch_member_uuids(
         self,

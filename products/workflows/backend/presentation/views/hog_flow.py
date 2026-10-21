@@ -82,6 +82,7 @@ from posthog.synthetic_user import SyntheticUser
 from posthog.user_permissions import UserPermissions
 from posthog.utils import relative_date_parse_with_delta_mapping
 
+from products.access_control.backend.facade.contracts import ObjectAccessRef
 from products.access_control.backend.facade.user_access_control import UserAccessControl, visible_teams_for_user
 from products.access_control.backend.presentation.access_control import (
     AccessControlViewSetMixin,
@@ -121,6 +122,7 @@ from products.cdp.backend.presentation.serializers import (
     InputsSerializer,
     require_viewer_access_to_added_actions,
 )
+from products.cohorts.backend.facade.api import StaticCohortMembershipOutcome, get_static_cohort_access
 from products.messaging.backend.presentation.views.serializers import DesignOperationSerializer
 from products.notifications.backend.facade.api import publish_resource_edited
 from products.replay_vision.backend.facade.api import (
@@ -285,8 +287,6 @@ from products.workflows.backend.facade.workflows import (
     BILLABLE_ACTION_TYPES,
     BROADCAST_STATUSES,
     COHORT_TRIGGER_TRANSITIONS,
-    PERSON_DEPENDENT_ACTION_TYPES,
-    ROW_SCOPED_TRIGGER_TYPES,
     SUPPORTED_ACTION_TYPES,
     WORKFLOW_FIELD_FILTER_PARAMS,
     WORKFLOW_SAFE_INTERNAL_EVENTS,
@@ -295,6 +295,8 @@ from products.workflows.backend.facade.workflows import (
     get_workflow,
     get_workflow_edit_state,
     get_workflow_ref,
+    is_person_dependent_action,
+    is_personless_trigger,
     list_workflows,
     workflow_from_fields,
     workflow_publish_impact,
@@ -435,6 +437,30 @@ def _actions_reference_cohorts(actions: Any) -> bool:
             if isinstance(filters, dict) and (filter_cohort_ids(filters) or filter_action_ids(filters)):
                 return True
     return False
+
+
+def _contains_static_cohort_action(value: Any) -> bool:
+    if isinstance(value, dict):
+        if value.get("template_id") == "template-posthog-add-person-to-static-cohort":
+            return True
+        return any(_contains_static_cohort_action(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_static_cohort_action(item) for item in value)
+    return False
+
+
+def _static_cohort_ids(actions: Any) -> set[int]:
+    cohort_ids: set[int] = set()
+    for flow_action in actions if isinstance(actions, list) else []:
+        config = (flow_action.get("config") or {}) if isinstance(flow_action, dict) else {}
+        if config.get("template_id") != _ADD_STATIC_COHORT_MEMBER_TEMPLATE_ID:
+            continue
+        inputs = config.get("inputs") or {}
+        cohort_id_input = inputs.get("cohort_id") if isinstance(inputs, dict) else None
+        cohort_id = cohort_id_input.get("value") if isinstance(cohort_id_input, dict) else None
+        if isinstance(cohort_id, int) and not isinstance(cohort_id, bool):
+            cohort_ids.add(cohort_id)
+    return cohort_ids
 
 
 def _reject_clock_based_wait(config: dict, team: Team) -> None:
@@ -583,6 +609,8 @@ _RUN_SCOUT_TEMPLATE_ID = "template-posthog-run-scout"
 # The "Classify with AI" step. The classification endpoint refuses categories outside its limits with a
 # 400, which fails the step on every run, so a strict save applies the same limits.
 _CLASSIFY_TEMPLATE_ID = "template-posthog-classify"
+
+_ADD_STATIC_COHORT_MEMBER_TEMPLATE_ID = "template-posthog-add-person-to-static-cohort"
 
 # The scan runs as the workflow's owner, but whoever saves the step chooses which sessions it reads and
 # where the answers go, so the editor needs recording access too.
@@ -1353,6 +1381,7 @@ class HogFlowActionSerializer(serializers.Serializer):
             "so opens and clicks are not recorded for that step (delivery/bounce/unsubscribe still are). "
             "Dictionary input values are template strings too — write booleans/numbers as single-expression "
             "templates ('{true}', '{42}'), which evaluate to the typed value. "
+            "The Add person to static cohort template requires inputs.cohort_id.value as a positive integer. "
             "delay: waits a fixed span or until a per-person/-event date — set EXACTLY ONE of "
             "delay_duration or delay_until. {delay_duration: '<number><unit>'} where unit is s|m|h|d. "
             "Fractions OK ('1.5d'=36h). Per-unit max s<=60, m<=60, h<=24, d<=30; values above are "
@@ -1636,6 +1665,46 @@ class HogFlowActionSerializer(serializers.Serializer):
         if not serializer.is_valid():
             raise serializers.ValidationError({"inputs": serializer.errors})
 
+    def _validate_add_static_cohort_member_action(self, inputs: dict) -> None:
+        cohort_id = (inputs.get("cohort_id") or {}).get("value")
+        if not isinstance(cohort_id, int) or isinstance(cohort_id, bool) or cohort_id < 1:
+            raise serializers.ValidationError({"inputs": {"cohort_id": "Select a static cohort."}})
+
+        request = self.context.get("request")
+        scopes = get_authenticator_scopes(getattr(request, "successful_authenticator", None))
+        if scopes is not None and "*" not in scopes and "cohort:write" not in scopes:
+            raise exceptions.PermissionDenied("The static cohort step needs a key with the cohort:write scope.")
+
+        get_team = self.context.get("get_team")
+        if get_team is None:
+            return
+        team = get_team()
+        cohort_access = get_static_cohort_access(team_id=team.id, cohort_id=cohort_id)
+        cohort_status = cohort_access.status
+        if cohort_status == StaticCohortMembershipOutcome.NOT_FOUND:
+            raise serializers.ValidationError({"inputs": {"cohort_id": "Static cohort was not found."}})
+        if cohort_status == StaticCohortMembershipOutcome.DELETED:
+            raise serializers.ValidationError({"inputs": {"cohort_id": "Static cohort was deleted."}})
+        if cohort_status == StaticCohortMembershipOutcome.NOT_STATIC:
+            raise serializers.ValidationError({"inputs": {"cohort_id": "Select a static cohort."}})
+
+        user = getattr(request, "user", None)
+        if (
+            user is not None
+            and user.is_authenticated
+            and not isinstance(user, SyntheticUser)
+            and not UserAccessControl(user=user, team=team).check_access_level_for_ref(
+                ObjectAccessRef(
+                    resource="cohort",
+                    id=str(cohort_access.cohort_id),
+                    team_id=cohort_access.team_id,
+                    created_by_id=cohort_access.created_by_id,
+                ),
+                "editor",
+            )
+        ):
+            raise serializers.ValidationError({"inputs": {"cohort_id": "You do not have access to edit cohorts."}})
+
     def validate(self, data):
         is_draft = self.context.get("is_draft")
         # Drafts from the web builder stay lenient (incomplete graphs save fine); programmatic callers
@@ -1911,6 +1980,8 @@ class HogFlowActionSerializer(serializers.Serializer):
                     self._validate_run_scout_action()
                 if strict and template_id == _CLASSIFY_TEMPLATE_ID:
                     self._validate_classify_action(data["config"]["inputs"])
+                if strict and template_id == _ADD_STATIC_COHORT_MEMBER_TEMPLATE_ID:
+                    self._validate_add_static_cohort_member_action(data["config"]["inputs"])
                 if template_id == _REPLAY_VISION_TEMPLATE_ID:
                     self._validate_replay_vision_action(data["config"].get("inputs") or {}, strict=strict)
 
@@ -3144,8 +3215,11 @@ class HogFlowSerializer(HogFlowMinimalSerializer):
     )
 
     def _stages_draft(self) -> bool:
-        # stage_draft rides the raw request body rather than being a serializer field, mirroring
-        # base_updated_at (see perform_update, which does the actual draft routing off it).
+        # Only regular updates route from this flag. Custom actions share the raw request in serializer
+        # context, so accepting it there could incorrectly make their validation lenient.
+        view = self.context.get("view")
+        if getattr(view, "action", None) not in {"update", "partial_update"}:
+            return False
         request = self.context.get("request")
         return bool(request is not None and getattr(request, "data", None) and request.data.get("stage_draft"))
 
@@ -3345,8 +3419,12 @@ class HogFlowSerializer(HogFlowMinimalSerializer):
         # secret into an attacker-controlled step. Rejecting here blocks it before anything is written.
         submitted_actions = data.get("actions")
         if isinstance(submitted_actions, list):
-            submitted_ids = [a.get("id") for a in submitted_actions if isinstance(a, dict)]
-            duplicate_ids = sorted({aid for aid in submitted_ids if aid is not None and submitted_ids.count(aid) > 1})
+            submitted_ids: list[str] = [
+                action_id
+                for action in submitted_actions
+                if isinstance(action, dict) and isinstance((action_id := action.get("id")), str)
+            ]
+            duplicate_ids = sorted({action_id for action_id in submitted_ids if submitted_ids.count(action_id) > 1})
             if duplicate_ids:
                 raise serializers.ValidationError({"actions": f"Duplicate action id(s): {', '.join(duplicate_ids)}"})
 
@@ -3396,14 +3474,24 @@ class HogFlowSerializer(HogFlowMinimalSerializer):
         # serializer is the source of truth, so the API, MCP, and frontend can't bypass it. We force
         # exit_only_at_end since the other exit conditions re-evaluate trigger/conversion filters that
         # may reference person properties.
-        if data["trigger"].get("type") in ROW_SCOPED_TRIGGER_TYPES:
+        if is_personless_trigger(data["trigger"]):
             data["exit_condition"] = HogFlowExitCondition.ONLY_AT_END
             if not is_draft:
-                offending_types = sorted(
+                offending_types: list[str] = sorted(
                     {
-                        action.get("type", "")
+                        action_type
                         for action in actions
-                        if action.get("type") in PERSON_DEPENDENT_ACTION_TYPES
+                        if is_person_dependent_action(action)
+                        and isinstance(
+                            (
+                                action_type := (
+                                    (action.get("config") or {}).get("template_id")
+                                    if action.get("type") == "function"
+                                    else action.get("type")
+                                )
+                            ),
+                            str,
+                        )
                     }
                 )
                 if offending_types:
@@ -3419,8 +3507,12 @@ class HogFlowSerializer(HogFlowMinimalSerializer):
 
         # Compute and store unique billable action types for efficient quota checking
         # Only track billable actions defined in BILLABLE_ACTION_TYPES
-        billable_action_types = sorted(
-            {action.get("type", "") for action in actions if action.get("type") in BILLABLE_ACTION_TYPES}
+        billable_action_types: list[str] = sorted(
+            {
+                action_type
+                for action in actions
+                if isinstance((action_type := action.get("type")), str) and action_type in BILLABLE_ACTION_TYPES
+            }
         )
         data["billable_action_types"] = billable_action_types
 
@@ -4676,6 +4768,22 @@ class HogFlowViewSet(
         return Response(AppMetricResponseSerializer(instance=data).data)
 
     def dangerously_get_required_scopes(self, request, view) -> Optional[list[str]]:
+        needs_cohort_write = (
+            self.action
+            in {
+                "create",
+                "update",
+                "partial_update",
+                "graph",
+                "publish",
+                "invocations",
+                "rerun",
+                "run",
+            }
+            or (self.action in {"batch_jobs", "schedules"} and request.method == "POST")
+            or (self.action == "schedule_detail" and request.method == "PATCH")
+        )
+        needs_cohort_write = needs_cohort_write and self._request_or_stored_actions_add_to_static_cohort(request)
         # Dual-method custom actions need method-aware scopes — the action-name-based read/write
         # lists above can't distinguish GET (read) from POST (write) on the same action. Without
         # this, these actions declare no scope and reject all personal-API-key (MCP) access.
@@ -4696,7 +4804,10 @@ class HogFlowViewSet(
             # rationale as user_blast_radius. Listing jobs/schedules stays workflow-read.
             if request.method in ("GET", "HEAD", "OPTIONS"):
                 return ["hog_flow:read"]
-            return ["hog_flow:write", "person:read"]
+            scopes = ["hog_flow:write", "person:read"]
+            if needs_cohort_write:
+                scopes.append("cohort:write")
+            return scopes
         # Sizing an audience runs a person/group count over caller-supplied filters — that's person-data
         # access, so require person:read on top of workflow read. Without it a hog_flow:read-only token
         # could use this as a person-existence oracle (e.g. "does email X exist?"). The web builder uses
@@ -4722,6 +4833,8 @@ class HogFlowViewSet(
             scopes = ["hog_flow:write", "group:read"]
             if self._test_invocation_may_read_cohort_membership(request):
                 scopes.append("person:read")
+            if needs_cohort_write:
+                scopes.append("cohort:write")
             return scopes
         # Rerun re-executes stored invocations — it replays up to 30 days of
         # persisted event/person/group data through the current (possibly
@@ -4731,8 +4844,27 @@ class HogFlowViewSet(
         # the same data-read scopes invocation inspection requires. (`hog_flow:read`
         # would be a no-op since :write already satisfies it.)
         if self.action == "rerun":
-            return ["hog_flow:write", "person:read", "group:read"]
+            scopes = ["hog_flow:write", "person:read", "group:read"]
+            if needs_cohort_write:
+                scopes.append("cohort:write")
+            return scopes
+        if needs_cohort_write:
+            return ["hog_flow:write", "cohort:write"]
         return None
+
+    def _request_or_stored_actions_add_to_static_cohort(self, request: Request) -> bool:
+        if _contains_static_cohort_action(request.data):
+            return True
+        workflow_id = self.kwargs.get("pk")
+        if workflow_id is None:
+            return False
+        try:
+            hog_flow = get_workflow_edit_state(
+                team_id=self.team_id, workflow_id=workflow_id, user_access_control=None, required_level=None
+            )
+        except WorkflowNotFound:
+            return False
+        return _contains_static_cohort_action(hog_flow.actions) or _contains_static_cohort_action(hog_flow.draft)
 
     _cohort_conditions_rollout: Optional[bool] = None
 
@@ -4986,7 +5118,9 @@ class HogFlowViewSet(
 
         serializer = HogInvocationRerunRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self._require_replay_vision_caller_access(request, self._edit_state().actions)
+        actions = self._edit_state().actions
+        self._require_replay_vision_caller_access(request, actions)
+        self._require_static_cohort_caller_access(actions)
 
         # `serializer.data` runs `to_representation`, which converts the
         # `DateTimeField`s on `filter.window_start` / `filter.window_end` to
@@ -6102,6 +6236,26 @@ class HogFlowViewSet(
             if error is not None:
                 raise exceptions.PermissionDenied(error)
 
+    def _require_static_cohort_caller_access(self, actions: Any) -> None:
+        if not _contains_static_cohort_action(actions):
+            return
+        if not self.user_access_control.check_access_level_for_resource("cohort", "editor"):
+            raise exceptions.PermissionDenied("You do not have access to edit cohorts.")
+        for cohort_id in _static_cohort_ids(actions):
+            cohort_access = get_static_cohort_access(team_id=self.team_id, cohort_id=cohort_id)
+            if cohort_access.status == StaticCohortMembershipOutcome.NOT_FOUND:
+                continue
+            if not self.user_access_control.check_access_level_for_ref(
+                ObjectAccessRef(
+                    resource="cohort",
+                    id=str(cohort_access.cohort_id),
+                    team_id=cohort_access.team_id,
+                    created_by_id=cohort_access.created_by_id,
+                ),
+                "editor",
+            ):
+                raise exceptions.PermissionDenied("You do not have access to edit the selected cohort.")
+
     @extend_schema(request=HogFlowInvocationSerializer, responses={200: _FallbackSerializer})
     @action(detail=True, methods=["POST"])
     def invocations(self, request: Request, *args, **kwargs):
@@ -6147,9 +6301,9 @@ class HogFlowViewSet(
 
         if not payload.get("mock_async_functions", True):
             configuration = payload.get("configuration") or {}
-            self._require_replay_vision_caller_access(
-                request, configuration.get("actions") if configuration else (hog_flow.actions if hog_flow else [])
-            )
+            actions = configuration.get("actions") if configuration else (hog_flow.actions if hog_flow else [])
+            self._require_replay_vision_caller_access(request, actions)
+            self._require_static_cohort_caller_access(actions)
 
         res = create_hog_flow_invocation_test(
             team_id=self.team_id,
@@ -6782,7 +6936,9 @@ class HogFlowViewSet(
             audience_cohort = realtime_audience_cohort(self.team.project_id, hog_flow.trigger_filters)
             if audience_cohort is not None and not audience_cohort.can_finish:
                 raise exceptions.ValidationError(realtime_cohort_cant_finish_error(audience_cohort))
-            self._require_replay_vision_caller_access(request, self._edit_state().actions)
+            actions = self._edit_state().actions
+            self._require_replay_vision_caller_access(request, actions)
+            self._require_static_cohort_caller_access(actions)
 
             batch_job = create_batch_job(
                 team_id=self.team_id,
@@ -6907,7 +7063,9 @@ class HogFlowViewSet(
 
             serializer = HogFlowScheduleSerializer(data=request.data, context=self.get_serializer_context())
             serializer.is_valid(raise_exception=True)
-            self._require_replay_vision_caller_access(request, self._edit_state().actions)
+            actions = self._edit_state().actions
+            self._require_replay_vision_caller_access(request, actions)
+            self._require_static_cohort_caller_access(actions)
             schedule = create_schedule(team_id=self.team_id, hog_flow_id=hog_flow.id, fields=serializer.validated_data)
             self._log_schedule_activity(hog_flow, before=None, after=schedule)
             self._report_workflow_action("hog_flow_schedule_created", hog_flow, {"schedule_id": str(schedule.id)})
