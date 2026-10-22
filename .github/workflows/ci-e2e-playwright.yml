@@ -537,7 +537,7 @@ jobs:
         # 8-core depot: 18% avg / 30% peak memory observed on 16-core runs (#46853 noted
         # the workload "is not resource constrained" even after sharding was removed).
         # Talk to #team-devex before changing.
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-playwright-${{ 0 }}
+        runs-on: ravion/ee=posthog-bench-metal/type=sandbox/cpu=8/memory=32/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-playwright-${{ 0 }}
         timeout-minutes: 45
         permissions:
             contents: read
@@ -1301,7 +1301,7 @@ jobs:
         name: Complete Visual Review run
         # Same runner provider as the playwright job, whose VR CLI cache entry this job
         # reads: GitHub-hosted and Depot runners keep separate cache stores.
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-vr-complete-${{ 0 }}
+        runs-on: ravion/ee=posthog-bench-metal/type=sandbox/cpu=2/memory=8/interruptible=true/id=${{ github.run_id }}-${{ github.run_attempt }}-vr-complete-${{ 0 }}
         timeout-minutes: 15
         needs: [playwright]
         # !cancelled() is load-bearing. select-specs is skipped on every full-run event (push to
