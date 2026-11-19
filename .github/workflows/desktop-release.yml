@@ -16,9 +16,9 @@ env:
 
 jobs:
     prepare-release:
-        if: github.repository == 'PostHog/posthog'
+        if: true
         environment: desktop-release
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-release-prepare-release-${{ strategy.job-index }}
         timeout-minutes: 10
         permissions:
             contents: write
@@ -595,7 +595,7 @@ jobs:
                       arch: x64
                     - runner: depot-ubuntu-24.04-arm-4
                       arch: arm64
-        runs-on: ${{ matrix.runner }}
+        runs-on: ${{ startsWith((matrix.runner), 'depot-ubuntu') && format('{0}/id={1}-{2}-desktop-release-publish-linux-{3}', ((matrix.runner) == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (matrix.runner) == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (matrix.runner) }}
         timeout-minutes: 60
         defaults:
             run:
@@ -767,7 +767,7 @@ jobs:
         # Publish only when every platform built successfully. Without an `if:` override
         # the default `needs` gate skips this job (leaving the GitHub release a draft) if
         # any of the macOS, Windows or Linux publish jobs fails.
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-release-finalize-release-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: write

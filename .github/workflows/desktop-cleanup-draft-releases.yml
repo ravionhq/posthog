@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
     cleanup:
-        if: github.repository == 'PostHog/posthog'
+        if: true
         # The release App's key lives in this environment, which only master and a desktop-v* tag reach.
         environment: desktop-tagging
         runs-on: ubuntu-24.04

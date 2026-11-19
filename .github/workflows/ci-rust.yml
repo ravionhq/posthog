@@ -34,7 +34,7 @@ jobs:
         name: Trunk Dynamic CI (Learning Mode)
         if: >-
             github.event_name == 'pull_request' &&
-            github.repository == 'PostHog/posthog' &&
+            true &&
             github.event.pull_request.head.repo.full_name == github.repository &&
             github.actor != 'dependabot[bot]' &&
             !startsWith(github.head_ref, 'trunk-merge/')
@@ -53,7 +53,7 @@ jobs:
     changes:
         runs-on: ubuntu-24.04
         timeout-minutes: 5
-        if: github.repository == 'PostHog/posthog'
+        if: true
         name: Determine need to run Rust checks
         permissions:
             contents: read
@@ -73,7 +73,7 @@ jobs:
                   sparse-checkout-cone-mode: false
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -220,7 +220,7 @@ jobs:
         needs: [changes, affected]
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: depot-ubuntu-22.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-build-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -305,7 +305,7 @@ jobs:
         needs: [changes, affected]
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-test-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -568,7 +568,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: ./.github/actions/trunk-quarantine-gate
               with:
                   junit-paths: rust/junit-nextest-*.xml
@@ -608,7 +608,7 @@ jobs:
         # changes, so unrelated rust PRs skip the job entirely.
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push' && contains(needs.affected.outputs.affected_crates, 'personhog-test-harness')
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-personhog-gate-${{ strategy.job-index }}
         timeout-minutes: 35
         permissions:
             contents: read
@@ -895,7 +895,7 @@ jobs:
         needs: changes
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: depot-ubuntu-22.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-linting-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: read

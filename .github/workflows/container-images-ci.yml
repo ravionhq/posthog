@@ -14,7 +14,7 @@ jobs:
     changes:
         runs-on: ubuntu-24.04
         timeout-minutes: 5
-        if: github.repository == 'PostHog/posthog'
+        if: true
         name: Determine need to run Docker checks
         permissions:
             contents: read
@@ -42,7 +42,7 @@ jobs:
                   sparse-checkout-cone-mode: false
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -156,7 +156,7 @@ jobs:
         needs: changes
         name: Build Docker image
         # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build-${{ strategy.job-index }}
         timeout-minutes: 45
         permissions:
             id-token: write # allow issuing OIDC tokens for this workflow run
@@ -206,7 +206,7 @@ jobs:
     dagster_ml_build:
         needs: [changes, posthog_build]
         name: Build Dagster ML image
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-dagster_ml_build-${{ strategy.job-index }}
         timeout-minutes: 30
         permissions:
             id-token: write

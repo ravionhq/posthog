@@ -85,7 +85,7 @@ jobs:
         name: Trunk Dynamic CI (Learning Mode)
         if: >-
             github.event_name == 'pull_request' &&
-            github.repository == 'PostHog/posthog' &&
+            true &&
             github.event.pull_request.head.repo.full_name == github.repository &&
             github.actor != 'dependabot[bot]' &&
             !startsWith(github.head_ref, 'trunk-merge/') &&
@@ -108,7 +108,7 @@ jobs:
             actions: read
         # Merge-queue runs use Depot because GitHub-hosted runners queue for minutes at busy hours
         # and this job sits on the queue's required-check path. Other runs stay on free GitHub-hosted runners.
-        runs-on: ${{ startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
+        runs-on: ${{ startsWith((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-e2e-playwright-changes-{3}', ((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') }}
         # 7 not 5: the debounce step below sleeps up to 60s, so widen the budget to
         # keep ample headroom. A timeout here skips Playwright, which the aggregator
         # would count as a pass.
@@ -118,7 +118,7 @@ jobs:
         # aggregator treats skipped as success, and drafts can't merge anyway.
         # Push and schedule runs only belong in this repo. Mirrors run CI on their own PRs only.
         if: |
-            (github.repository == 'PostHog/posthog' || (github.event_name != 'push' && github.event_name != 'schedule')) && (
+            (true || (github.event_name != 'push' && github.event_name != 'schedule')) && (
             github.event_name == 'push' ||
             github.event_name == 'workflow_dispatch' ||
             (github.event.pull_request.head.repo.full_name == github.repository &&
@@ -159,7 +159,7 @@ jobs:
 
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -637,7 +637,7 @@ jobs:
         # dominates and the larger runner only buys vCPU minutes. See "Sizing the Playwright job" in
         # .agents/skills/authoring-ci-workflows/SKILL.md. Talk to #team-devex before changing the size or
         # the worker counts below; they are tuned against each other.
-        runs-on: ${{ startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8' }}
+        runs-on: ${{ startsWith((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-e2e-playwright-playwright-{3}', ((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04-16' || 'depot-ubuntu-24.04-8') }}
         timeout-minutes: 45
         permissions:
             contents: read
@@ -1170,7 +1170,7 @@ jobs:
             # the PR head ref, which may predate the script. Without it the uploader keeps reading
             # .github/CODEOWNERS, as it did before.
             - name: Build the Trunk ownership map
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               shell: bash
               run: |
                   script=.github/scripts/trunk-codeowners.sh
@@ -1189,7 +1189,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: trunk-io/analytics-uploader@9886de74a788c450c793109577a4d97bfb3e799f # v2.1.8
               with:
                   junit-paths: playwright/junit-results.xml
@@ -1304,7 +1304,7 @@ jobs:
             ${{ !cancelled() && github.actor != 'dependabot[bot]' &&
             needs.changes.outputs.shouldRun == 'true' && (
             (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog') ||
-            (github.event_name != 'pull_request' && github.repository == 'PostHog/posthog')) }}
+            (github.event_name != 'pull_request' && true)) }}
         permissions:
             contents: read
             actions: read
@@ -1383,7 +1383,7 @@ jobs:
         needs: [changes, playwright]
         name: Playwright tests pass
         # Same runner choice as `changes`.
-        runs-on: ${{ startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
+        runs-on: ${{ startsWith((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-e2e-playwright-playwright_tests-{3}', ((startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (startsWith(github.head_ref, 'trunk-merge/') && 'depot-ubuntu-24.04' || 'ubuntu-24.04') }}
         timeout-minutes: 5
         if: ${{ !cancelled() }}
         steps:

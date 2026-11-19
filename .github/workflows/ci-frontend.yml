@@ -53,7 +53,7 @@ jobs:
         name: Trunk Dynamic CI (Learning Mode)
         if: >-
             github.event_name == 'pull_request' &&
-            github.repository == 'PostHog/posthog' &&
+            true &&
             github.event.pull_request.head.repo.full_name == github.repository &&
             github.actor != 'dependabot[bot]' &&
             !startsWith(github.head_ref, 'trunk-merge/') &&
@@ -82,7 +82,7 @@ jobs:
         # never weakens what protects master.
         # Push and schedule runs only belong in this repo. Mirrors run CI on their own PRs only.
         if: >-
-            (github.repository == 'PostHog/posthog' || (github.event_name != 'push' && github.event_name != 'schedule')) && (
+            (true || (github.event_name != 'push' && github.event_name != 'schedule')) && (
             github.event_name != 'pull_request'
             || github.event.pull_request.draft != true
             || startsWith(github.head_ref, 'trunk-merge/')
@@ -146,7 +146,7 @@ jobs:
 
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -735,7 +735,7 @@ jobs:
               if: >-
                   github.event_name == 'push' &&
                   github.ref == 'refs/heads/master' &&
-                  github.repository == 'PostHog/posthog'
+                  true
               run: |
                   mkdir -p .base-reports
                   for file in bundle-size-report.json eager-graph-report.json layer-report.json toolbar-size-report.json; do
@@ -755,7 +755,7 @@ jobs:
               if: >-
                   github.event_name == 'push' &&
                   github.ref == 'refs/heads/master' &&
-                  github.repository == 'PostHog/posthog' &&
+                  true &&
                   steps.stage-master.outputs.complete == 'true'
               uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
               with:
@@ -871,7 +871,7 @@ jobs:
             - name: Capture bundle size to PostHog
               if: |
                   (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog') ||
-                  (github.event_name != 'pull_request' && github.repository == 'PostHog/posthog')
+                  (github.event_name != 'pull_request' && true)
               uses: PostHog/posthog-github-action@58dea254b598fb5d469c0699c98af8288a7f7650 # v1.2.0
               with:
                   posthog-token: ${{secrets.POSTHOG_API_TOKEN}}
@@ -887,7 +887,7 @@ jobs:
             - name: Capture bundle size to DevEx PostHog
               if: |
                   (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog') ||
-                  (github.event_name != 'pull_request' && github.repository == 'PostHog/posthog')
+                  (github.event_name != 'pull_request' && true)
               continue-on-error: true
               uses: PostHog/posthog-github-action@58dea254b598fb5d469c0699c98af8288a7f7650 # v1.2.0
               with:
@@ -926,7 +926,7 @@ jobs:
         # shared cache credentials ambiently (see _rust-build-images.yml, which skips sccache
         # creds for the same reason). GitHub warns against exposing a larger runner with a
         # static IP range to fork pull requests, so keep this runner's group off static IPs.
-        runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core' }}
+        runs-on: ${{ startsWith(((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-frontend-frontend-typescript-checks-{3}', (((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && 'depot-ubuntu-24.04-8' || 'ubuntu-24.04-8core') }}
         # Kea typegen checks every logic plus everything that depends on it.
         # For changes to shared core (TaxonomicFilter, Insight, etc.) the dependent set is
         # large, so the budget must fit full generation on top of the baseline build.
@@ -1048,7 +1048,7 @@ jobs:
         # files need under the file limit in .github/scripts/jest-select.js. The
         # merge queue runs the full four-shard fanout. A copy of the repository lands
         # on a slower GitHub-hosted runner pool, so it gets a longer budget.
-        timeout-minutes: ${{ github.repository == 'PostHog/posthog' && 20 || 30 }}
+        timeout-minutes: ${{ true && 20 || 30 }}
         needs: [changes, select-jest-tests]
         # A status function is required because select-jest-tests is skipped on the
         # merge queue's run and on master pushes, and a skipped need would otherwise
@@ -1173,7 +1173,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: ./.github/actions/trunk-quarantine-gate
               with:
                   junit-paths: junit-results/junit-${{ matrix.segment }}-${{ matrix.chunk }}.xml
@@ -1244,7 +1244,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: ./.github/actions/trunk-quarantine-gate
               with:
                   junit-paths: junit-results/junit-replay-shared.xml
@@ -1271,7 +1271,7 @@ jobs:
         if: >-
             !cancelled() &&
             needs.jest.result != 'skipped' &&
-            github.repository == 'PostHog/posthog' &&
+            true &&
             (
             (github.event_name != 'pull_request' && github.ref == 'refs/heads/master') ||
             (github.event_name == 'pull_request' &&
@@ -1349,7 +1349,7 @@ jobs:
             ${{ !cancelled() && github.actor != 'dependabot[bot]' &&
             needs.changes.outputs.frontend_code == 'true' && (
             (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog') ||
-            (github.event_name != 'pull_request' && github.repository == 'PostHog/posthog')) }}
+            (github.event_name != 'pull_request' && true)) }}
         permissions:
             contents: read
             actions: read

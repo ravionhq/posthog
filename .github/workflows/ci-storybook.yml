@@ -61,7 +61,7 @@ jobs:
         name: Trunk Dynamic CI (Learning Mode)
         if: >-
             github.event_name == 'pull_request' &&
-            github.repository == 'PostHog/posthog' &&
+            true &&
             github.event.pull_request.head.repo.full_name == github.repository &&
             github.actor != 'dependabot[bot]' &&
             !startsWith(github.head_ref, 'trunk-merge/') &&
@@ -90,7 +90,7 @@ jobs:
         # ready_for_review re-runs everything, so the merge gate is unaffected.
         # Push and schedule runs only belong in this repo. Mirrors run CI on their own PRs only.
         if: >-
-            (github.repository == 'PostHog/posthog' || (github.event_name != 'push' && github.event_name != 'schedule')) && (
+            (true || (github.event_name != 'push' && github.event_name != 'schedule')) && (
             github.event_name != 'pull_request'
             || github.event.pull_request.draft != true
             || startsWith(github.head_ref, 'trunk-merge/')
@@ -146,7 +146,7 @@ jobs:
 
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -265,7 +265,7 @@ jobs:
 
     build-storybook:
         name: Build Storybook (depot-ubuntu-24.04)
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-storybook-build-storybook-${{ strategy.job-index }}
         # The Vite build normally takes ~3.5 minutes, but a degraded runner can stretch
         # the memory-heavy bundling phase past 15 minutes — leave headroom so a slow
         # runner yields a slow-but-green build instead of a cancelled one that hard-fails
@@ -506,7 +506,7 @@ jobs:
             && needs.changes.outputs.frontend == 'true'
             && needs.build-storybook.result == 'success'
             && needs.select-stories.outputs.should_run != 'false'
-            && github.repository == 'PostHog/posthog'
+            && true
             && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
         outputs:
             run_id: ${{ steps.create.outputs.run_id }}
@@ -633,7 +633,7 @@ jobs:
 
     visual-regression:
         name: Visual regression tests - ${{ matrix.browser }} (${{ matrix.shard }}/${{ matrix.shard_count }})
-        runs-on: ${{ matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04' }}
+        runs-on: ${{ startsWith((matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-storybook-visual-regression-{3}', ((matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (matrix.browser == 'chromium' && 'ubuntu-24.04' || 'depot-ubuntu-24.04') }}
         needs: [changes, build-storybook, vr-setup, select-stories]
         # A status function is required because select-stories is skipped on forced-full
         # PRs and master pushes. !cancelled() rather than always() so a superseded run's
@@ -935,7 +935,7 @@ jobs:
               if: ${{ !cancelled() && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || github.repository != 'PostHog/posthog') }}
               shell: bash
               env:
-                  BLOCKING: ${{ github.repository == 'PostHog/posthog' }}
+                  BLOCKING: ${{ true }}
               run: |
                   set +e
                   node vr-cli/products/visual_review/cli/dist/cli/src/index.js verify --partial \
@@ -1009,7 +1009,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: ./.github/actions/trunk-quarantine-gate
               with:
                   junit-paths: common/storybook/junit.xml
@@ -1347,7 +1347,7 @@ jobs:
             ${{ !cancelled() && github.actor != 'dependabot[bot]' &&
             needs.changes.outputs.frontend == 'true' && (
             (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'PostHog/posthog') ||
-            (github.event_name != 'pull_request' && github.repository == 'PostHog/posthog')) }}
+            (github.event_name != 'pull_request' && true)) }}
         permissions:
             contents: read
             actions: read

@@ -29,7 +29,7 @@ jobs:
     collect-and-merge:
         name: Collect timing data from CI artifacts
         if: github.repository == 'PostHog/posthog'
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-backend-update-test-timing-collect-and-merge-${{ strategy.job-index }}
         timeout-minutes: 15
         steps:
             - name: Get app token
@@ -443,7 +443,7 @@ jobs:
 
     rebuild-events-schema-prune-manifest:
         name: Rebuild the events_json prune manifest
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-backend-update-test-timing-rebuild-events-schema-prune-manifest-${{ strategy.job-index }}
         timeout-minutes: 15
         steps:
             # The reader goes in its own directory, because a sparse checkout in the workspace
