@@ -34,8 +34,8 @@ env:
 
 jobs:
     linux:
-        if: github.repository == 'PostHog/posthog'
-        runs-on: depot-ubuntu-24.04-4
+        if: true
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-warm-caches-linux-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: read
@@ -106,7 +106,7 @@ jobs:
               run: pnpm --filter code exec playwright install chromium
 
     macos:
-        if: github.repository == 'PostHog/posthog'
+        if: true
         runs-on: depot-macos-26
         timeout-minutes: 30
         permissions:

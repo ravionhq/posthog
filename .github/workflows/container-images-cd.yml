@@ -108,7 +108,7 @@ jobs:
         if: |
             !cancelled() && github.repository_owner == 'PostHog' && vars.CD_DEPLOY_ENABLED == 'true' &&
             needs.changes.outputs.image != 'false'
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-cd-posthog_build-${{ strategy.job-index }}
         # Covers two bounded build attempts plus the post-build image-boot verification and the
         # frontend asset publish to three buckets before dispatch.
         timeout-minutes: 60
@@ -1653,7 +1653,7 @@ jobs:
         name: Build and push Dagster ML image
         needs: posthog_build
         if: ${{ !cancelled() && needs.posthog_build.result == 'success' && needs.posthog_build.outputs.image-digest != '' && github.repository_owner == 'PostHog' && vars.CD_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/master' }}
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-cd-dagster_ml_build-${{ strategy.job-index }}
         timeout-minutes: 30
         continue-on-error: true
         permissions:

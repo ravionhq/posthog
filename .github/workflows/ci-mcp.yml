@@ -46,7 +46,7 @@ jobs:
         # never weakens what protects master.
         # Push and schedule runs only belong in this repo. Mirrors run CI on their own PRs only.
         if: >-
-            (github.repository == 'PostHog/posthog' || (github.event_name != 'push' && github.event_name != 'schedule')) && (
+            (true || (github.event_name != 'push' && github.event_name != 'schedule')) && (
             github.event_name != 'pull_request'
             || github.event.pull_request.draft != true
             || startsWith(github.head_ref, 'trunk-merge/')
@@ -67,7 +67,7 @@ jobs:
             # non-pytest Python change across the app triggers it.
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
               id: app-token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -261,7 +261,7 @@ jobs:
 
     unit-tests:
         name: Unit Tests
-        runs-on: depot-ubuntu-24.04-4
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-mcp-unit-tests-${{ strategy.job-index }}
         timeout-minutes: 10
         needs: changes
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
@@ -369,7 +369,7 @@ jobs:
     integration-tests:
         name: Integration Tests
         # GitHub's ref-isolated cache keeps the hourly lane on master-produced dumps.
-        runs-on: ${{ github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4' }}
+        runs-on: ${{ startsWith((github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4'), 'depot-ubuntu') && format('{0}/id={1}-{2}-ci-mcp-integration-tests-{3}', ((github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-24.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-24.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-24.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-24.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-24.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-22.04' && 'ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-22.04-4' && 'ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-22.04-8' && 'ravion/ee=posthog-bench/type=sandbox/cpu=8/memory=32/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-22.04-16' && 'ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=64/disk=80/image=github-ubuntu-24' || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') == 'depot-ubuntu-22.04-32' && 'ravion/ee=posthog-bench/type=sandbox/cpu=32/memory=128/disk=80/image=github-ubuntu-24'), github.run_id, github.run_attempt, strategy.job-index) || (github.event_name == 'schedule' && 'ubuntu-24.04' || 'depot-ubuntu-24.04-4') }}
         needs: changes
         # Sized for a schema-cache miss (full migrate from scratch), not just a hit.
         timeout-minutes: 45
@@ -808,7 +808,7 @@ jobs:
             - name: Quarantine gate
               id: quarantine_gate
               continue-on-error: true
-              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && github.repository == 'PostHog/posthog' && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
+              if: ${{ !cancelled() && env.RUNS_ON_INTERNAL_PR == 'true' && true && github.actor != 'dependabot[bot]' && vars.TRUNK_UPLOAD_ENABLED == 'true' }}
               uses: ./.github/actions/trunk-quarantine-gate
               with:
                   junit-paths: services/mcp/junit-integration.xml
@@ -850,7 +850,7 @@ jobs:
         # failed (a snapshot mismatch fails that job). !cancelled() rather than always() so a
         # superseded run does not push a stale snapshot commit to the branch.
         # The commit App is installed on PostHog/posthog only; the gate reads a skipped job as a pass.
-        if: ${{ !cancelled() && github.repository == 'PostHog/posthog' && (needs.changes.outputs.mcp == 'true' || needs.changes.outputs.mcp-typescript == 'true') && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && !contains(github.actor, '[bot]') && github.actor != 'posthog-bot' && !contains(github.actor, 'github-actions') }}
+        if: ${{ !cancelled() && true && (needs.changes.outputs.mcp == 'true' || needs.changes.outputs.mcp-typescript == 'true') && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && !contains(github.actor, '[bot]') && github.actor != 'posthog-bot' && !contains(github.actor, 'github-actions') }}
         permissions:
             contents: write
             pull-requests: write

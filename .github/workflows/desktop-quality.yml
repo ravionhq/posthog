@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
     changes:
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-quality-changes-${{ strategy.job-index }}
         timeout-minutes: 5
         if: github.event_name != 'push' && github.event_name != 'merge_group' && inputs.run-suite == ''
         permissions:
@@ -51,7 +51,7 @@ jobs:
             - uses: actions/create-github-app-token@v3.1.1
               id: app-token
               # forks can't read org secrets, so fall back to github.token
-              if: github.repository == 'PostHog/posthog' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_PATHS_FILTER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_PATHS_FILTER_PRIVATE_KEY }}
@@ -84,8 +84,8 @@ jobs:
     quality:
         needs: changes
         # Fail closed: if change detection itself failed, run instead of skipping.
-        if: ${{ !cancelled() && (github.repository == 'PostHog/posthog' || (github.event_name != 'push' && github.event_name != 'schedule')) &&github.event_name != 'merge_group' && (inputs.run-suite == 'true' || (inputs.run-suite == '' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true' || needs.changes.outputs.workflow == 'true'))) }}
-        runs-on: depot-ubuntu-24.04-4
+        if: ${{ !cancelled() && (true || (github.event_name != 'push' && github.event_name != 'schedule')) &&github.event_name != 'merge_group' && (inputs.run-suite == 'true' || (inputs.run-suite == '' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true' || needs.changes.outputs.workflow == 'true'))) }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-quality-quality-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: read
@@ -135,7 +135,7 @@ jobs:
     desktop-quality-pass:
         needs: [changes, quality]
         name: Desktop Quality Pass
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-quality-desktop-quality-pass-${{ strategy.job-index }}
         timeout-minutes: 5
         if: ${{ !cancelled() }}
         steps:

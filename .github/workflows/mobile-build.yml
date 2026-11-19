@@ -43,7 +43,7 @@ jobs:
         if: github.repository == 'PostHog/posthog' && github.ref == 'refs/heads/master'
         environment: mobile-build
         name: EAS build (${{ inputs.profile }}, ${{ inputs.platform }})
-        runs-on: depot-ubuntu-24.04
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-mobile-build-build-${{ strategy.job-index }}
         timeout-minutes: 20
         defaults:
             run:
