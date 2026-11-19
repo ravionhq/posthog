@@ -165,6 +165,7 @@ jobs:
               id: deployer
               # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
               uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               with:
                   client-id: ${{ secrets.GH_APP_CHARTS_DEPLOYER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_CHARTS_DEPLOYER_PRIVATE_KEY }}
