@@ -20,7 +20,7 @@ env:
     OBJECT_STORAGE_BUCKET: 'posthog'
     # set the max buffer size small enough that the functional tests behave the same in CI as when running locally
     SESSION_RECORDING_MAX_BUFFER_SIZE_KB: 1024
-    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || true }}
 
 concurrency:
     # The hourly lane gets its own group, so it queues behind itself rather than

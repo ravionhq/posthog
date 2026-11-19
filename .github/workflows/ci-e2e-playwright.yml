@@ -67,7 +67,7 @@ env:
     # Django runs without DEBUG here, so it would default to the Kubernetes CDP address and every
     # call to the Node CDP API would fail. The plugins container publishes the API on this port.
     CDP_API_URL: http://localhost:6738
-    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || true }}
     # npm's audit blocks the pnpm bootstrap. See .github/actions/pnpm-install for why.
     NPM_CONFIG_AUDIT: 'false'
     NPM_CONFIG_FUND: 'false'

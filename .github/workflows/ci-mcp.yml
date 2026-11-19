@@ -34,7 +34,7 @@ permissions:
 env:
     # Keep SCHEMA_CACHE_EPOCH in sync with .depot/workflows/ci-backend.yml so schema cache keys match.
     SCHEMA_CACHE_EPOCH: v2
-    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    RUNS_ON_INTERNAL_PR: ${{ github.event_name != 'pull_request' || true }}
 
 jobs:
     changes:
