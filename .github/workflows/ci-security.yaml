@@ -61,6 +61,7 @@ jobs:
               run: echo "force_all=true" >> "$GITHUB_OUTPUT"
             # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
             - uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               id: app-token
               # forks can't read org secrets — fall back to github.token
               if: true && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository

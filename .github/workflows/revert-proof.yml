@@ -168,6 +168,7 @@ jobs:
         steps:
             # The dependency proof App publishes every lane of the change prover.
             - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+              continue-on-error: true
               id: app-token
               with:
                   client-id: ${{ vars.DEPENDENCY_PROOF_APP_ID }}

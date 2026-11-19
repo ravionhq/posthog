@@ -137,6 +137,7 @@ jobs:
               id: app-token
               # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
               uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               with:
                   client-id: ${{ vars.GH_APP_HOMEBREW_TAP_RELEASER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_HOMEBREW_TAP_RELEASER_PRIVATE_KEY }}

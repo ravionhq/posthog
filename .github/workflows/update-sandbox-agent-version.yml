@@ -65,6 +65,7 @@ jobs:
               id: app-token
               # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
               uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_SCHEDULED_ACTIONS_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_SCHEDULED_ACTIONS_PRIVATE_KEY }}
@@ -511,6 +512,7 @@ jobs:
               if: steps.state.outputs.action == 'bump'
               # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
               uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               with:
                   client-id: ${{ vars.GH_APP_POSTHOG_RELEASER_APP_ID }}
                   private-key: ${{ secrets.GH_APP_POSTHOG_RELEASER_PRIVATE_KEY }}

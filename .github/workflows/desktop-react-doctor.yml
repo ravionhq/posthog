@@ -47,6 +47,7 @@ jobs:
 
             # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
             - uses: actions/create-github-app-token@v3.1.1
+              continue-on-error: true
               id: app-token
               if: true && github.event.pull_request.head.repo.full_name == github.repository
               with:
