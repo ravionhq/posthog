@@ -146,7 +146,7 @@ jobs:
         name: Lint and check proto compatibility (depot-ubuntu-22.04)
         needs: changes
         if: needs.changes.outputs.proto == 'true'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-validation-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-validation-${{ strategy.job-index }}
         timeout-minutes: 5
 
         steps:
@@ -184,7 +184,7 @@ jobs:
         name: Check Python proto stubs are up to date (depot-ubuntu-22.04)
         needs: changes
         if: needs.changes.outputs.proto == 'true'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-python-codegen-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-python-codegen-${{ strategy.job-index }}
         timeout-minutes: 10
 
         steps:
@@ -243,7 +243,7 @@ jobs:
         name: Check Node proto stubs are up to date (depot-ubuntu-22.04)
         needs: changes
         if: needs.changes.outputs.proto == 'true'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-node-codegen-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-proto-node-codegen-${{ strategy.job-index }}
         timeout-minutes: 10
 
         steps:

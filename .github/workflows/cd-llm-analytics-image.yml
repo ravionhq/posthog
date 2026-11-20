@@ -57,7 +57,7 @@ jobs:
                 github.event_name == 'workflow_dispatch' ||
                 contains(github.event.pull_request.labels.*.name, 'build-llm-analytics-image')
             )
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-cd-llm-analytics-image-posthog_llm_analytics_build-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-cd-llm-analytics-image-posthog_llm_analytics_build-${{ strategy.job-index }}
         timeout-minutes: 10
         permissions:
             id-token: write

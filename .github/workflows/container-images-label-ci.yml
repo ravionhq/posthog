@@ -22,7 +22,7 @@ jobs:
         if: >-
             github.event.pull_request.head.repo.full_name == github.repository
             && contains(fromJSON('["hobby-preview", "no-depot-docker-cache"]'), github.event.label.name)
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-label-ci-posthog-build-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-label-ci-posthog-build-${{ strategy.job-index }}
         timeout-minutes: 30
         permissions:
             id-token: write
