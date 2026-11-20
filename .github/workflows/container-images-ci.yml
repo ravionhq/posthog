@@ -186,6 +186,9 @@ jobs:
                   dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
                   pr-number: ${{ !startsWith(github.head_ref, 'trunk-merge/') && github.event.number || '' }}
                   no-cache: ${{ contains(github.event.pull_request.labels.*.name, 'no-depot-docker-cache') }}
+                  # bench: amd64 only. Depot builds arm64 on native ARM builders in parallel; QEMU
+                  # emulation on an x86 runner breaks native-module installs (msgpackr-extract) and hangs.
+                  platforms: linux/amd64
 
             - name: Container image digest
               if: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
