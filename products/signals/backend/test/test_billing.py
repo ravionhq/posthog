@@ -898,7 +898,8 @@ class TestSpendBasedBilling(BaseTest):
             self._generation(signal_id, 100_000)
             complete_signal_pipeline(team_id=self.team.id, signal_id=signal_id)
         with time_machine.travel(_at(11), tick=False):
-            self._generation(signal_id, 90_000)
+            with self.assertRaises(ValueError):
+                self._generation(signal_id, 90_000)
             complete_signal_pipeline(team_id=self.team.id, signal_id=signal_id)
         spend = SignalSpend.objects.for_team(self.team.id).get(signal_id=signal_id)
         assert not spend.accounting_failed

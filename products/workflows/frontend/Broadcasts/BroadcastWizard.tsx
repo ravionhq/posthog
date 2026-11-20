@@ -18,7 +18,6 @@ import { BroadcastSceneHeader } from './BroadcastSceneHeader'
 import { broadcastWizardLogic } from './broadcastWizardLogic'
 import { BroadcastWizardStepper } from './BroadcastWizardStepper'
 import { QuillBroadcastActionsMenu } from './QuillBroadcastActionsMenu'
-import { missingContentReason } from './steps/broadcastContentErrors'
 import { BroadcastContentStep } from './steps/BroadcastContentStep'
 import { BroadcastGoalStep } from './steps/BroadcastGoalStep'
 import { BroadcastRecipientsStep } from './steps/BroadcastRecipientsStep'
@@ -160,11 +159,7 @@ export function BroadcastWizard(): JSX.Element {
                                 loading={saving}
                                 disabled={launching}
                                 disabledReason={
-                                    currentStepHasErrors
-                                        ? ((todayRailNav && currentStep === 'content'
-                                              ? missingContentReason(stepValidationErrors.content)
-                                              : undefined) ?? 'Fix errors before continuing')
-                                        : draftBlockedReason
+                                    currentStepHasErrors ? 'Fix errors before continuing' : draftBlockedReason
                                 }
                                 onClick={continueStep}
                                 data-attr="broadcast-wizard-continue"

@@ -15,8 +15,7 @@ from products.messaging.backend.temporal.inputs import ProviderImportWorkflowInp
 PROVIDER_IMPORT_WORKFLOW = "messaging-provider-import"
 
 # Bounds the whole run, so a run stranded on a queue with no pollers closes instead of blocking new imports forever.
-# Long enough for the steps that read contacts one at a time to get through the largest account an import takes.
-RUN_EXECUTION_TIMEOUT = timedelta(days=4)
+RUN_EXECUTION_TIMEOUT = timedelta(hours=24)
 
 
 @async_to_sync
