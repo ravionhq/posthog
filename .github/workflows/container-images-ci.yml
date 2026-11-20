@@ -156,9 +156,13 @@ jobs:
     posthog_build:
         needs: changes
         name: Build Docker image
+        strategy:
+            fail-fast: false
+            matrix:
+                platforms: ['linux/amd64,linux/arm64', 'linux/amd64']
         # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
         runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build-${{ strategy.job-index }}
-        timeout-minutes: 45
+        timeout-minutes: 120
         permissions:
             id-token: write # allow issuing OIDC tokens for this workflow run
             contents: read # allow at least reading the repo contents, add other permissions if necessary
@@ -185,6 +189,7 @@ jobs:
                   dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
                   pr-number: ${{ !startsWith(github.head_ref, 'trunk-merge/') && github.event.number || '' }}
                   no-cache: ${{ contains(github.event.pull_request.labels.*.name, 'no-depot-docker-cache') }}
+                  platforms: ${{ matrix.platforms }}
 
             - name: Container image digest
               if: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
