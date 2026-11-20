@@ -217,6 +217,9 @@ jobs:
                       memory: 32
                     - platforms: linux/amd64,linux/arm64
                       memory: 64
+                    - platforms: linux/amd64,linux/arm64
+                      memory: 64
+                      native_frontend: 'true'
         # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
         runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=${{ matrix.memory }}/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build_depot_shim-${{ strategy.job-index }}
         timeout-minutes: 120
@@ -233,8 +236,26 @@ jobs:
             - name: Check out
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+            - name: Build arch-independent frontend stages natively (bench)
+              if: ${{ matrix.native_frontend == 'true' }}
+              run: |
+                  python3 - <<'PY'
+                  p = 'Dockerfile'
+                  s = open(p).read()
+                  node = 'node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1'
+                  base = 'FROM ' + node + ' AS node-base\n'
+                  i = s.index(base)
+                  j = s.index('ENV COREPACK_ENABLE_NETWORK=0\n', i) + len('ENV COREPACK_ENABLE_NETWORK=0\n')
+                  block = s[i:j]
+                  s = s[:j] + '\n' + block.replace('FROM ' + node + ' AS node-base', 'FROM --platform=$BUILDPLATFORM ' + node + ' AS node-build-base') + s[j:]
+                  s = s.replace('FROM ' + node + ' AS product-manifests', 'FROM --platform=$BUILDPLATFORM ' + node + ' AS product-manifests')
+                  s = s.replace('FROM node-base AS frontend-build', 'FROM node-build-base AS frontend-build')
+                  open(p, 'w').write(s)
+                  PY
+                  git diff --stat Dockerfile
+
             - name: Build and cache Docker image in Depot
-              if: ${{ !contains(matrix.platforms, 'arm64') }} # bench: warm amd64 only
+              if: ${{ matrix.native_frontend == 'true' }} # bench: only the native-frontend leg in this run
               id: build
               uses: ./.github/actions/build-n-cache-image-depot-shim
               with:
