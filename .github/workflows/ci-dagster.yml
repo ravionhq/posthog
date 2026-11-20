@@ -546,7 +546,7 @@ jobs:
             && (needs.changes.outputs.dagster_direct == 'true'
                 || (needs.changes.outputs.merge_queue == 'true'
                     && needs.changes.outputs.dagster == 'true')) }}
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-dagster-dagster-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-dagster-dagster-${{ strategy.job-index }}
         env:
             DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USER }}
             DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

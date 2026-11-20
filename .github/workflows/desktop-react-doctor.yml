@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
     react-doctor:
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-react-doctor-react-doctor-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-react-doctor-react-doctor-${{ strategy.job-index }}
         timeout-minutes: 15
         # Skipped on trunk-merge/** heads: merge-queue PRs are ephemeral and every
         # constituent PR already ran this in full.
