@@ -35,7 +35,7 @@ env:
 jobs:
     linux:
         if: true
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-warm-caches-linux-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-warm-caches-linux-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: read

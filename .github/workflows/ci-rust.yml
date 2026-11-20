@@ -221,7 +221,7 @@ jobs:
         needs: [changes, affected]
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-build-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-build-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -306,7 +306,7 @@ jobs:
         needs: [changes, affected]
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-test-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-test-${{ strategy.job-index }}
         timeout-minutes: 20
         permissions:
             contents: read
@@ -609,7 +609,7 @@ jobs:
         # changes, so unrelated rust PRs skip the job entirely.
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push' && contains(needs.affected.outputs.affected_crates, 'personhog-test-harness')
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-personhog-gate-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-personhog-gate-${{ strategy.job-index }}
         timeout-minutes: 35
         permissions:
             contents: read
@@ -896,7 +896,7 @@ jobs:
         needs: changes
         # Not on master push — master coverage comes from the hourly run (see `schedule`).
         if: needs.changes.outputs.rust == 'true' && github.event_name != 'push'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-linting-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-rust-linting-${{ strategy.job-index }}
         timeout-minutes: 15
         permissions:
             contents: read
