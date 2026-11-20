@@ -156,8 +156,9 @@ jobs:
     posthog_build:
         needs: changes
         name: Build Docker image
+        # bench: upstream runs on depot-ubuntu-24.04-4, but the build itself runs on Depot remote builders; on Ravion the runner does the build, so size it like a Depot builder
         # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=32/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build-${{ strategy.job-index }}
         timeout-minutes: 120
         permissions:
             id-token: write # allow issuing OIDC tokens for this workflow run
