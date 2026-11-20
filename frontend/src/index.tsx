@@ -140,3 +140,4 @@ if (document.readyState !== 'loading') {
 } else {
     document.addEventListener('DOMContentLoaded', boot)
 }
+// bench: incremental build probe
