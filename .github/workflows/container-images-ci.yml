@@ -1,13 +1,12 @@
 name: Container Images CI
 
 on:
-    pull_request:
-        # Label-triggered builds live in container-images-label-ci.yml so a skipped
-        # label event cannot replace this workflow's required check.
-        types: [opened, synchronize]
+    # bench: own branch, push-triggered, so it doesn't share PR #18's concurrency group or fire other workflows
+    push:
+        branches: [trunk-merge/bench-docker-139159]
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+    group: ${{ github.workflow }}-${{ github.ref_name || github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -25,7 +24,7 @@ jobs:
             should_build: >-
                 ${{
                     steps.filter.outputs.hobby == 'true'
-                    || (startsWith(github.head_ref, 'trunk-merge/') && steps.filter.outputs.build_inputs == 'true')
+                    || (startsWith(github.ref_name, 'trunk-merge/') && steps.filter.outputs.build_inputs == 'true')
                     || contains(github.event.pull_request.labels.*.name, 'hobby-preview')
                     || steps.filter.outputs.dagster_ml == 'true'
                 }}
@@ -167,7 +166,7 @@ jobs:
             id-token: write # allow issuing OIDC tokens for this workflow run
             contents: read # allow at least reading the repo contents, add other permissions if necessary
         # Only on PostHog/posthog, as there's no docker login on forks
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.changes.outputs.should_build == 'true'
+        if: true
 
         outputs:
             digest: ${{ steps.build.outputs.digest }}
@@ -181,18 +180,18 @@ jobs:
               uses: ./.github/actions/build-n-cache-image
               with:
                   actions-id-token-request-url: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-                  push-image: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+                  push-image: ${{ !startsWith(github.ref_name, 'trunk-merge/') }}
                   # PR publish role in the shared-services ECR: any branch, but it can push only to the
                   # *-prs repositories (posthog-cloud-prs here), never to posthog-cloud.
                   aws-role-to-assume: ${{ secrets.AWS_ECR_SHARED_SERVICES_POSTHOG_PRS_PUBLISH_IAM_ROLE }}
                   dockerhub-username: ${{ secrets.DOCKERHUB_USER }}
                   dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
-                  pr-number: ${{ !startsWith(github.head_ref, 'trunk-merge/') && github.event.number || '' }}
+                  pr-number: ${{ !startsWith(github.ref_name, 'trunk-merge/') && github.event.number || '' }}
                   no-cache: ${{ contains(github.event.pull_request.labels.*.name, 'no-depot-docker-cache') }}
                   platforms: ${{ matrix.platforms }}
 
             - name: Container image digest
-              if: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+              if: ${{ !startsWith(github.ref_name, 'trunk-merge/') }}
               env:
                   IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
                   IMAGE_REGISTRY: ${{ steps.build.outputs.registry }}
@@ -221,7 +220,7 @@ jobs:
             id-token: write # allow issuing OIDC tokens for this workflow run
             contents: read # allow at least reading the repo contents, add other permissions if necessary
         # Only on PostHog/posthog, as there's no docker login on forks
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.changes.outputs.should_build == 'true'
+        if: true
 
         outputs:
             digest: ${{ steps.build.outputs.digest }}
@@ -235,18 +234,18 @@ jobs:
               uses: ./.github/actions/build-n-cache-image-depot-shim
               with:
                   actions-id-token-request-url: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-                  push-image: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+                  push-image: ${{ !startsWith(github.ref_name, 'trunk-merge/') }}
                   # PR publish role in the shared-services ECR: any branch, but it can push only to the
                   # *-prs repositories (posthog-cloud-prs here), never to posthog-cloud.
                   aws-role-to-assume: ${{ secrets.AWS_ECR_SHARED_SERVICES_POSTHOG_PRS_PUBLISH_IAM_ROLE }}
                   dockerhub-username: ${{ secrets.DOCKERHUB_USER }}
                   dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
-                  pr-number: ${{ !startsWith(github.head_ref, 'trunk-merge/') && github.event.number || '' }}
+                  pr-number: ${{ !startsWith(github.ref_name, 'trunk-merge/') && github.event.number || '' }}
                   no-cache: ${{ contains(github.event.pull_request.labels.*.name, 'no-depot-docker-cache') }}
                   platforms: ${{ matrix.platforms }}
 
             - name: Container image digest
-              if: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+              if: ${{ !startsWith(github.ref_name, 'trunk-merge/') }}
               env:
                   IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
                   IMAGE_REGISTRY: ${{ steps.build.outputs.registry }}
@@ -271,7 +270,7 @@ jobs:
         permissions:
             id-token: write
             contents: read
-        if: needs.changes.outputs.dagster_ml_changed == 'true' && needs.posthog_build.outputs.digest != '' && !startsWith(github.head_ref, 'trunk-merge/')
+        if: needs.changes.outputs.dagster_ml_changed == 'true' && needs.posthog_build.outputs.digest != '' && !startsWith(github.ref_name, 'trunk-merge/')
         steps:
             - name: Check out
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
