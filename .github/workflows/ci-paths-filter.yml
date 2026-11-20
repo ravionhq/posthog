@@ -20,7 +20,7 @@ permissions:
 jobs:
     verify:
         name: Test and verify committed bundle (${{ matrix.action }})
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-paths-filter-verify-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/id=${{ github.run_id }}-${{ github.run_attempt }}-ci-paths-filter-verify-${{ strategy.job-index }}
         timeout-minutes: 10
         strategy:
             matrix:
