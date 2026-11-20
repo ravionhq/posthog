@@ -207,6 +207,60 @@ jobs:
                   echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
                   echo "- Digest: \`$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
 
+    posthog_build_depot_shim:
+        needs: changes
+        name: Build Docker image via depot shim
+        strategy:
+            fail-fast: false
+            matrix:
+                platforms: ['linux/amd64,linux/arm64', 'linux/amd64']
+        # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build_depot_shim-${{ strategy.job-index }}
+        timeout-minutes: 120
+        permissions:
+            id-token: write # allow issuing OIDC tokens for this workflow run
+            contents: read # allow at least reading the repo contents, add other permissions if necessary
+        # Only on PostHog/posthog, as there's no docker login on forks
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.changes.outputs.should_build == 'true'
+
+        outputs:
+            digest: ${{ steps.build.outputs.digest }}
+
+        steps:
+            - name: Check out
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+            - name: Build and cache Docker image in Depot
+              id: build
+              uses: ./.github/actions/build-n-cache-image-depot-shim
+              with:
+                  actions-id-token-request-url: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+                  push-image: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+                  # PR publish role in the shared-services ECR: any branch, but it can push only to the
+                  # *-prs repositories (posthog-cloud-prs here), never to posthog-cloud.
+                  aws-role-to-assume: ${{ secrets.AWS_ECR_SHARED_SERVICES_POSTHOG_PRS_PUBLISH_IAM_ROLE }}
+                  dockerhub-username: ${{ secrets.DOCKERHUB_USER }}
+                  dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+                  pr-number: ${{ !startsWith(github.head_ref, 'trunk-merge/') && github.event.number || '' }}
+                  no-cache: ${{ contains(github.event.pull_request.labels.*.name, 'no-depot-docker-cache') }}
+                  platforms: ${{ matrix.platforms }}
+
+            - name: Container image digest
+              if: ${{ !startsWith(github.head_ref, 'trunk-merge/') }}
+              env:
+                  IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+                  IMAGE_REGISTRY: ${{ steps.build.outputs.registry }}
+              run: |
+                  echo "Image digest: $IMAGE_DIGEST"
+                  echo "## Container image built :rocket:" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "**Image reference:** \`$IMAGE_REGISTRY/posthog-cloud-prs@$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "**Image SHA:** \`${{ github.sha }}@$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+                  echo "- Digest: \`$IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
+
     # Validates Dockerfile.dagster-ml on the image this PR built. It builds but never pushes, and
     # skips in the merge queue, where posthog_build pushes no image to build from.
     dagster_ml_build:
