@@ -31,7 +31,7 @@ permissions:
 
 jobs:
     changes:
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-changes-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-changes-${{ strategy.job-index }}
         timeout-minutes: 5
         if: github.event_name == 'pull_request'
         permissions:
@@ -166,7 +166,7 @@ jobs:
                 github.event.pull_request.head.repo.full_name == github.repository &&
                 startsWith(github.head_ref, 'trunk-merge/')
             )
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-backend-coupling-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-backend-coupling-${{ strategy.job-index }}
         timeout-minutes: 5
         steps:
             - name: Checkout gate scripts
@@ -198,7 +198,7 @@ jobs:
         name: Desktop Tests Pass
         needs: [changes, build, quality, typecheck, test, backend-coupling]
         if: ${{ !cancelled() }}
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-tests-pass-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-ci-tests-pass-${{ strategy.job-index }}
         timeout-minutes: 5
         steps:
             - name: Check results

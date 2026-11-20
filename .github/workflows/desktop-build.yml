@@ -31,7 +31,7 @@ env:
 
 jobs:
     changes:
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-changes-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-changes-${{ strategy.job-index }}
         timeout-minutes: 5
         if: github.event_name != 'merge_group' && inputs.run-suite == ''
         permissions:
@@ -109,7 +109,7 @@ jobs:
             (github.event.pull_request.draft != true ||
             startsWith(github.head_ref, 'trunk-merge/')) &&
             (inputs.run-suite == 'true' || (inputs.run-suite == '' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true' || needs.changes.outputs.workflow == 'true')))
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-build-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-build-${{ strategy.job-index }}
         timeout-minutes: 30
         permissions:
             contents: read
@@ -167,7 +167,7 @@ jobs:
     desktop-build-pass:
         needs: [changes, build]
         name: Desktop Build Pass
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-desktop-build-pass-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-desktop-build-desktop-build-pass-${{ strategy.job-index }}
         timeout-minutes: 5
         if: ${{ !cancelled() }}
         steps:
