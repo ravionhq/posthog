@@ -90,7 +90,7 @@ jobs:
         name: Check mobile
         needs: changes
         if: needs.changes.outputs.mobile == 'true' || needs.changes.outputs.api_types == 'true'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-mobile-ci-check-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-mobile-ci-check-${{ strategy.job-index }}
         timeout-minutes: 15
         env:
             # Reusable workflows keep the caller's name. Only the direct master
@@ -194,7 +194,7 @@ jobs:
         name: Check mobile replay bundle
         needs: changes
         if: needs.changes.outputs.replay_bundle == 'true'
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/disk_cache=off/id=${{ github.run_id }}-${{ github.run_attempt }}-mobile-ci-replay_bundle-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=2/memory=8/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-mobile-ci-replay_bundle-${{ strategy.job-index }}
         timeout-minutes: 10
         steps:
             - name: Checkout
