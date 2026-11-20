@@ -166,7 +166,7 @@ jobs:
             id-token: write # allow issuing OIDC tokens for this workflow run
             contents: read # allow at least reading the repo contents, add other permissions if necessary
         # Only on PostHog/posthog, as there's no docker login on forks
-        if: true
+        if: false # bench: only the depot-shim variant now
 
         outputs:
             digest: ${{ steps.build.outputs.digest }}
@@ -212,9 +212,13 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                platforms: ['linux/amd64,linux/arm64', 'linux/amd64']
+                include:
+                    - platforms: linux/amd64
+                      memory: 32
+                    - platforms: linux/amd64,linux/arm64
+                      memory: 64
         # run these on 4, if they're RAM constrained the FE build will fail randomly in Docker build
-        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=4/memory=16/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build_depot_shim-${{ strategy.job-index }}
+        runs-on: ravion/ee=posthog-bench/type=sandbox/cpu=16/memory=${{ matrix.memory }}/disk=80/image=github-ubuntu-24/id=${{ github.run_id }}-${{ github.run_attempt }}-container-images-ci-posthog_build_depot_shim-${{ strategy.job-index }}
         timeout-minutes: 120
         permissions:
             id-token: write # allow issuing OIDC tokens for this workflow run
