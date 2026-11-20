@@ -688,8 +688,11 @@ jobs:
                   - name: Run Django migrations
                     run: python manage.py migrate --noinput
 
-                  - name: Run ClickHouse migrations
-                    run: python manage.py migrate_clickhouse
+            # bench (fork only): ClickHouse migration 0026 reads posthog_instancesetting from
+            # Postgres. Upstream primes Postgres from a master-only schema cache, which hides the
+            # race; the fork never has that cache, so run this after Django migrations.
+            - name: Run ClickHouse migrations
+              run: python manage.py migrate_clickhouse
 
             - name: Start Rust flags service
               working-directory: rust
